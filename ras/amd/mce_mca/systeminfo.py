@@ -40,7 +40,7 @@ def install_preq():
 
     # Install msr-tools from source
     logging.info("Installing msr-tools package")
-    exitcode, stdout, _ = Run("git clone https://github.com/intel/msr-tools.git")
+    exitcode, stdout, _ = Run("git clone https://kernel.googlesource.com/pub/scm/utils/cpu/msr-tools/msr-tools")
     if (exitcode == 0):
         exitcode, stdout, _ = Run("cd msr-tools; ./autogen.sh; make install")
         if (exitcode == 0):

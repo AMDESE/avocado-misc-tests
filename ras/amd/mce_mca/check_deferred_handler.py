@@ -47,13 +47,7 @@ class MceTest(Test):
             else:
                 self.log.info("MSR Module Load Success")
 
-            # System CPUs > 255, build/install upstream msr-tools
             code, num_cpus, err = systeminfo.Run(["nproc"])
-            if (int(num_cpus) > 255):
-                code, out_APIC520, err = systeminfo.Run(["rdmsr -p 256 0x0852"])
-                if (out_APIC520 == ''):
-                    self.cancel("System having more than 255 CPUs, install upstream msr-tools")
-
             # Check for appropriate vector value for APIC 520 across all CPUs
             for cpu in range(0, int(num_cpus)):
                 code, out_APIC520, err = systeminfo.Run(["rdmsr -p %s 0x0852" % (cpu)])

@@ -51,13 +51,7 @@ class MceTest(Test):
             ("LVT offset 1 assigned for vector 0xf9" in jrl_log)):
             self.log.info("PASS: MCA Thresholding interrupt handler is installed")
 
-            # System CPUs > 255, build/install upstream msr-tools
             code, num_cpus, err = systeminfo.Run(["nproc"])
-            if (int(num_cpus) > 255):
-                code, out_APIC510, err = systeminfo.Run(["rdmsr -p 256 0x0851"])
-                if (out_APIC510 == ''):
-                    self.cancel("System having more than 255 CPUs, install upstream msr-tools")
-
             # Check for appropriate vector value for APIC 510 across all CPUs
             for cpu in range(0, int(num_cpus)):
                 code, out_APIC510, err = systeminfo.Run(["rdmsr -p %s 0x0851" % (cpu)])

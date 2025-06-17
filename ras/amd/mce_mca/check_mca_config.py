@@ -34,13 +34,6 @@ class MceTest(Test):
 
         # Get total number of cpus
         code, num_cpus, err = systeminfo.Run(["nproc"])
-
-        # System CPUs > 255, build/install upstream msr-tools
-        if (int(num_cpus) > 255):
-            code, out_MCG_CAP, err = systeminfo.Run(["rdmsr -p 256 0x00000179"])
-            if (out_MCG_CAP == ''):
-                self.cancel("System having more than 255 CPUs, install upstream msr-tools")
-
         for cpu in range(0, int(num_cpus)):
             code, out_MCG_CAP, err = systeminfo.Run(["rdmsr -p %s 0x00000179"
                 % (cpu)])
