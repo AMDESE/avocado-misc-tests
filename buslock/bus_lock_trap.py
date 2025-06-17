@@ -122,6 +122,13 @@ class bus_lock_trap(Test):
         '''
         Run "bus_lock" to test bus lock trap functionality
         '''
+        # Check bus lock feature support to run functionality tests
+        cpu_info = genio.read_file("/proc/cpuinfo")
+        if 'bus_lock_detect' in cpu_info:
+            self.log.info("PASS: Bus Lock Trap cpu feature supported")
+        else:
+            self.cancel("Bus Lock Trap cpu feature unsupported")
+
         self.log.info("Bus lock trap functionality test")
         os.chdir(self.teststmpdir)
         cmd = "./bus_lock"
