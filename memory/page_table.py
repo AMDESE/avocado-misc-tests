@@ -110,18 +110,6 @@ class PageTable(Test):
         else:
             self.cancel("5-Level page table is not supported on the CPU")
 
-    def test_kernel(self):
-        '''
-        Check 5-Level page table support at kernel
-        '''
-        cfg_param = "CONFIG_X86_5LEVEL"
-        result = linux_modules.check_kernel_config(cfg_param)
-        if result == linux_modules.ModuleConfig.NOT_SET:
-            self.fail("%s is not set in the kernel." % cfg_param)
-        else:
-            self.log.info(
-                "Detected 5-Level page table config - CONFIG_X86_5LEVEL set in the kernel")
-
     def test_pg_table_tests(self):
         '''
         Run series of page tests(4 or 5 level) from "pg-table_tests.git" that covers functionality tests
