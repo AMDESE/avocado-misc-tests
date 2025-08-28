@@ -18,6 +18,7 @@ import platform
 import re
 import glob
 import shutil
+import pathlib
 
 from avocado import Test
 from avocado.utils import build, process
@@ -38,11 +39,21 @@ class kselftest(Test):
     """
     testdir = 'tools/testing/selftests'
 
-    def find_match(self, match_str, line):
+    def find_match(self, match_str, line, results_path):
         match = re.search(match_str, line)
         if match:
-            self.error = True
-            self.log.info("Testcase failed. Log from debug: %s" %
+            if "SKIP" in line:
+                self.error = "SKIP"
+                output = process.run('grep "SKIP" %s' % results_path, ignore_status=True)
+                if (output):
+                    self.log.info("Testcase Skipped. Log from debug: %s, %s" %
+                          (match.group(0), output.stdout.decode("utf-8")))
+                else:
+                    self.log.info("Testcase Skipped. Log from debug: %s, %s" %
+                          match.group(0))
+            else:
+                self.error = True
+                self.log.info("Testcase failed. Log from debug: %s" %
                           match.group(0))
 
     def setUp(self):
@@ -52,6 +63,7 @@ class kselftest(Test):
         smg = SoftwareManager()
         self.comp = self.params.get('comp', default='')
         self.subtest = self.params.get('subtest', default='')
+        self.subcomp_test = self.params.get('subcomp_test', default='')
         if self.comp == "mm" and self.subtest == "ksm_tests":
             self.test_type = self.params.get('test_type', default='-H')
             self.Size_flag = self.params.get('Size', default='-s')
@@ -148,6 +160,17 @@ class kselftest(Test):
                     self.buldir = os.path.join(self.workdir, l_dir)
                     break
             self.sourcedir = os.path.join(self.buldir, self.testdir)
+            self.sourcedir_comp = os.path.join(self.buldir, self.testdir, self.comp)
+            if os.chdir(self.sourcedir_comp) is None:
+                if self.subcomp_test:
+                    test_name = self.subcomp_test.split(":")[1]
+                    for name in pathlib.Path(self.sourcedir_comp).rglob("%s*" % test_name):
+                        self.log.info("Test case exists.")
+                        break
+                    else:
+                        self.cancel("Test case does not exists.")
+            else:
+                self.cancel("Test component does not exists.")
             if (self.comp != "cpufreq" and self.comp != "bpf"):
                 process.system("make headers -C %s" % self.buldir, shell=True,
                                sudo=True)
@@ -217,26 +240,34 @@ class kselftest(Test):
                     test_comp = self.comp + "/" + self.subtest
                 else:
                     test_comp = self.comp
-                make_cmd = 'make -C %s %s -C %s run_tests' % (
-                    self.sourcedir, kself_args, test_comp)
-                self.result = process.run(
-                    make_cmd, shell=True, ignore_status=True)
+                if self.subcomp_test:
+                    self.subcomp_single_test()
+                else:
+                    make_cmd = 'make -C %s %s -C %s run_tests' % (
+                        self.sourcedir, kself_args, test_comp)
+                    self.result = process.run(
+                        make_cmd, shell=True, ignore_status=True)
         log_output = self.result.stdout.decode('utf-8')
         results_path = os.path.join(self.outputdir, 'raw_output')
         with open(results_path, 'w') as r_file:
             r_file.write(log_output)
         for line in open(results_path).readlines():
-            if self.run_type == 'upstream':
-                self.find_match(r'not ok (.*) selftests:(.*)', line)
+            if self.run_type == 'upstream' or self.run_type == 'custom':
+                if self.subcomp_test:
+                    self.find_match(r'selftests:(.*) # SKIP', line, results_path)
+                self.find_match(r'not ok (.*) selftests:(.*)', line, results_path)
             elif self.run_type == 'distro':
                 if self.detected_distro.name == 'SuSE' and\
                         self.distro_ver == 12:
-                    self.find_match(r'selftests:(.*)\[FAIL\]', line)
+                    self.find_match(r'selftests:(.*)\[FAIL\]', line, results_path)
                 else:
-                    self.find_match(r'not ok (.*) selftests:(.*)', line)
+                    self.find_match(r'not ok (.*) selftests:(.*)', line, results_path)
 
         if self.error:
-            self.fail("Testcase failed during selftests")
+            if self.error == "SKIP":
+                self.cancel("Test case canceled. Refer to the log messages for the reason.")
+            else:
+                self.fail("Testcase failed during selftests")
 
     def run_cmd(self, cmd):
         """
@@ -289,6 +320,16 @@ class kselftest(Test):
         os.chdir(self.sourcedir)
         cmd = "./main.sh -t " + self.test_mode
         self.run_cmd(cmd)
+
+    def subcomp_single_test(self):
+        """
+        Execute individual sub-component level tests
+        """
+        subcomp_dir = os.path.join(
+            self.sourcedir, 'kselftest_install')
+        os.chdir(subcomp_dir)
+        test_run = "./run_kselftest.sh -t " + self.subcomp_test
+        self.run_cmd(test_run)
 
     def tearDown(self):
         self.log.info('Cleaning up')

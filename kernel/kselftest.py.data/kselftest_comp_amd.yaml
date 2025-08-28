@@ -1,0 +1,11 @@
+type: 'upstream'
+location: 'https://github.com/torvalds/linux/archive/v6.16.zip'
+kself_args: 'summary=1'
+
+component: !mux
+    #The Bus Lock Threshold feature helps hypervisors limit guests from issuing excessive bus locks, preventing system slowdowns that affect all tenants.
+    #The feature is supported starting with AMD EPYC ZEN 5 processors and is available from Linux kernel v6.16 onwards.
+    #The kernel config option KVM_CAP_X86_BUS_LOCK_EXIT must be enabled.
+    kvm_buslock_test:
+      comp: 'kvm'
+      subcomp_test: 'kvm:kvm_buslock_test'
