@@ -90,6 +90,10 @@ class pmqos_cpu_latency(Test):
 
     def get_latency_constrained_residencies(self, lat_val_us):
         self.write_cpu_dma_latency(lat_val_us)
+        cpu = self.cpu
+
+        #Wake up the CPU before measuring the idle durations.
+        os.system(f"taskset -c {cpu} yes& sleep 1; pkill yes");
 
         before = self.read_state_times()
         self.do_sleep()
@@ -108,14 +112,20 @@ class pmqos_cpu_latency(Test):
         undesired_states_entered = {}
         good_states_idle_duration = 0
         latencies_dict = self.latencies
+        total_residency = 0
 
         for state, latency in latencies_dict.items():
             residency = residencies_dict[state]
+            total_residency = total_residency + residency
             if latency <= lat_val_us:
                 good_states_idle_duration += residency
             else:
                 if residency > 0:
                     undesired_states_entered[state] = (latency, residency)
+
+        if total_residency == 0:
+            self.log.info(f"No Idle state entered. Retrying test for PMOS latency {lat_val_us} us")
+            return -1
 
         if len(undesired_states_entered.keys()) != 0:
             error_string = f"For latency constraint of {lat_val_us} us, spent "
@@ -126,12 +136,26 @@ class pmqos_cpu_latency(Test):
         if good_states_idle_duration == 0:
             self.fail(f"FAIL: None of the states with latency atmost {lat_val_us} us have been entered")
 
+        return 0
+
     def latency_constrained_residency_test(self, lat_val_us):
-        residencies_dict = self.get_latency_constrained_residencies(lat_val_us)
-        self.validate_cstate_residency(lat_val_us, residencies_dict)
+        max_retries = 10
+        for i in range(max_retries):
+            residencies_dict = self.get_latency_constrained_residencies(lat_val_us)
+            ret = self.validate_cstate_residency(lat_val_us, residencies_dict)
+            if ret == 0:
+                return
+            self.do_sleep()
+        self.cancel(f"The target CPU is busy for {max_retries} iterations. Retry after ensuring that there is no load on the system")
 
     def test(self):
-        self.compute_cstate_paths('cpu0')
+        num_cpus = int(process.system_output("nproc"))
+        cpu = random.choice(range(num_cpus))
+        self.cpu = cpu
+        self.log.info(f"Targetting CPU {cpu}")
+        cpu_str = f"cpu{cpu}"
+
+        self.compute_cstate_paths(cpu_str)
         self.capture_state_latencies()
         self.open_cpu_dma_latency()
         self.sleep_time = 1
