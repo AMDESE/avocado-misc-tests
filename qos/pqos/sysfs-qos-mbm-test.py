@@ -66,6 +66,47 @@ class Resctrl(Test):
         (_, stdout, _) = CommonLib.Run(["cat {0}/schemata".format(testDir)])
         self.log.info("Schemata:" + stdout)
 
+    ## PQOS - L3 CAT verify allocation using memtester
+    #
+    #  Objective:
+    #  Execute memtester for a while and verify CAT allocation
+    #
+    #  Instruction:
+    #  1. Run the "taskset -c 0 ./memtester 100M > /dev/tmp &" to run memtester
+    #  2. Monitor the cache occupancy
+    #  Result:
+    #  Observe in output file
+    #    - MBM should be 8GB
+    def test_pqos_mbm_monitor(self):
+        log_file = os.path.join(self.outputdir,"sysfs-qos-mbm.log")
+        logging.info("Execute memtester")
+        run_memtest = subprocess.Popen("taskset -c 0 ./memtester-4.5.1/memtester 100M 5 > /dev/tmp", shell=True)
+
+        while run_memtest.poll() is None:
+            time.sleep(2)
+            _, first_read, _ = CommonLib.Run("cat /sys/fs/resctrl/test1/mon_data/mon_L3_00/mbm_total_bytes")
+            time.sleep(1)
+            _, second_read, _ = CommonLib.Run("cat /sys/fs/resctrl/test1/mon_data/mon_L3_00/mbm_total_bytes")
+            delta = int(second_read) - int(first_read)
+            command = "echo 'scale=3; {0}/1024/1024' | bc -l".format(delta)
+            _, total_mem, _ = CommonLib.Run(command)
+            CommonLib.Run("echo 'Total memory bandwidth {0}MB/s' >> {1}".format(total_mem, log_file))
+            time.sleep(0.5)
+
+        logging.info("Memtester completed")
+        logging.info("-" * 30)
+        logging.info("Check for MBM logs in %s" %log_file)
+        fpointer = open(log_file, "r")
+        for i in fpointer.readlines():
+            line = re.findall(r'[7|8]\d{3}', i)
+            if line:
+                logging.info("Match found: %d", line)
+                break
+            else:
+                logging.error("Failed to get 8MB memory bandwidth")
+        fpointer.close()
+        logging.info("=" * 30)
+
     def test_pqos_reset(self):
         time.sleep(5)
         self.log.info("Umount resctrl")

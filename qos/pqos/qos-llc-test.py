@@ -74,6 +74,50 @@ class Pqos(Test):
         assert exitstatus == 0
         assert "L3CA COS0 => MASK 0xff" in stdout
 
+    ## PQOS - L3 CAT verify allocation using memtester
+    #
+    #  Objective:
+    #  Execute memtester for a while and verify CAT allocation
+    #
+    #  Instruction:
+    #  1. CommonLib.Run the "taskset -c 0 memtester 100M > /dev/tmp &" to run memtester
+    #  2. Monitor the cache occupancy for 2minutes "pqos -m llc:0 -t 120 -u text -o pqmon_llc.txt"
+    #
+    #  Result:
+    #  Observe in output file
+    #    - llc should reach half of L3 cache on the system
+    def test_pqos_llc_monitor(self):
+        log_file = os.path.join(self.outputdir,"qos-llc.txt")
+        def get_llc(core):
+            llc = 0
+            pqos_log = open(log_file, 'r').readlines()
+
+            for line in pqos_log:
+                fields = line.split()
+                if len(fields) == 0:
+                    continue
+                if fields[0].isnumeric() == False:
+                    continue
+                if float(fields[3]) > llc:
+                    llc = float(fields[3])
+            return llc
+
+        #command = "taskset -c 0 ./memtester-4.5.1/memtester 100M"
+        command = "taskset -c 0 memtester 100M"
+        subprocess.Popen(command.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+
+        logging.info("Monitoring LLC through PQOS. Execute pqos -m llc:0-5")
+        logging.info("Check %s for output of the PQOS monitoring" %log_file)
+        os.environ['LD_LIBRARY_PATH'] = '/usr/local/lib'
+        (exitcode, _, _) = CommonLib.Run("pqos -m llc:0 -t 120 -u text -o %s" %log_file)
+        assert exitcode == 0
+        (_, stdout, _) = CommonLib.Run(["cat /sys/devices/system/cpu/cpu0/cache/index3/size|awk -F'[^0-9]*' '{print $1}'"])
+        half_cache = float(stdout) / 2
+
+        llc = get_llc(0)
+        assert math.isclose(llc, half_cache, rel_tol=0.10), "Failed to get the match for LLC"
+        logging.info("PQOS LLC test passed")
+
     ## PQOS - L3 CAT reset
     #
     #  Objective:

@@ -69,3 +69,13 @@ class CommonLib:
             if (exitcode == 0):
                 exitcode, stdout, _ = CommonLib.Run("rm -rf intel-cmt-cat")
                 logging.info(stdout)
+
+        # Install memtester
+        logging.info("Installing memtester package")
+        exitcode, stdout, _ = CommonLib.Run("wget https://pyropus.ca./software/memtester/old-versions/memtester-4.7.1.tar.gz")
+        if (exitcode == 0):
+            exitcode, stdout, _ = CommonLib.Run("tar xvf memtester-4.7.1.tar.gz")
+            if (exitcode == 0):
+                exitcode, stdout, _ = CommonLib.Run("cd memtester-4.7.1; make; make install")
+                if (exitcode == 0):
+                    exitcode, stdout, _ = CommonLib.Run("rm -rf memtester-4.7.1.tar.gz memtester-4.7.1")
