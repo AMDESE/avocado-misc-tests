@@ -26,6 +26,7 @@ from avocado.utils import distro
 from avocado.utils import archive, git
 from avocado.utils.software_manager.manager import SoftwareManager
 
+IS_AMD = 'AuthenticAMD' in open('/proc/cpuinfo', 'r').read()
 
 class kselftest(Test):
     """
@@ -69,6 +70,13 @@ class kselftest(Test):
             self.Size_flag = self.params.get('Size', default='-s')
             self.Dup_MM_Area = self.params.get('Dup_MM_Area', default='100')
         if self.comp == "cpufreq":
+            if IS_AMD:
+                cpufreq_drv_file = f"/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver"
+                cpufreq_drv = process.system_output(f"cat {cpufreq_drv_file}").decode('utf')
+                self.log.info("CPUFreq driver: %s" % cpufreq_drv)
+                if cpufreq_drv != 'acpi-cpufreq':
+                    self.cancel("kselftests cpufreq tests expected to run using\
+                            the acpi-cpufreq driver. Check if acpi-cpufreq driver is configured on the system.")
             self.test_mode = self.params.get('test_mode', default='')
             self.testdir = 'tools/testing/selftests/cpufreq'
         if self.comp == "bpf":
