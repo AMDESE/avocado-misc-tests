@@ -9,3 +9,12 @@ component: !mux
     kvm_buslock_test:
       comp: 'kvm'
       subcomp_test: 'kvm:kvm_buslock_test'
+    cpufreq:
+      comp: "cpufreq"
+      test_modes: !mux
+        basic:
+          test_mode: "basic"
+        sptest1:
+          test_mode: "sptest1"
+        sptest2:
+          test_mode: "sptest2"
