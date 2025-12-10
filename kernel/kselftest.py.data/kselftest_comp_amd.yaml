@@ -18,3 +18,8 @@ component: !mux
           test_mode: "sptest1"
         sptest2:
           test_mode: "sptest2"
+    amd-pstate:
+      comp: "amd-pstate"
+      tests: !mux
+      basic:
+        test: "basic"
