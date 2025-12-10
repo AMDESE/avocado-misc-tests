@@ -22,7 +22,7 @@ import pathlib
 
 from avocado import Test
 from avocado.utils import build, process
-from avocado.utils import distro
+from avocado.utils import distro, linux_modules
 from avocado.utils import archive, git
 from avocado.utils.software_manager.manager import SoftwareManager
 
@@ -57,6 +57,17 @@ class kselftest(Test):
                 self.log.info("Testcase failed. Log from debug: %s" %
                           match.group(0))
 
+    def cpufreq_driver_match(self, driver):
+        cpufreq_drv_file = f"/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver"
+        if os.path.exists(cpufreq_drv_file):
+            cpufreq_drv = process.system_output(f"cat {cpufreq_drv_file}").decode('utf')
+        else:
+            self.cancel("sysfs cpufreq directory is not loaded")
+        self.log.info("CPUFreq driver: %s" % cpufreq_drv)
+        if cpufreq_drv != driver:
+            self.cancel(f"kselftests cpufreq tests expected to run using\
+                    the {driver} driver. Check if {driver} driver is configured on the system.")
+
     def setUp(self):
         """
         Resolve the packages dependencies and download the source.
@@ -71,14 +82,18 @@ class kselftest(Test):
             self.Dup_MM_Area = self.params.get('Dup_MM_Area', default='100')
         if self.comp == "cpufreq":
             if IS_AMD:
-                cpufreq_drv_file = f"/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver"
-                cpufreq_drv = process.system_output(f"cat {cpufreq_drv_file}").decode('utf')
-                self.log.info("CPUFreq driver: %s" % cpufreq_drv)
-                if cpufreq_drv != 'acpi-cpufreq':
-                    self.cancel("kselftests cpufreq tests expected to run using\
-                            the acpi-cpufreq driver. Check if acpi-cpufreq driver is configured on the system.")
+                self.cpufreq_driver_match('acpi-cpufreq')
             self.test_mode = self.params.get('test_mode', default='')
             self.testdir = 'tools/testing/selftests/cpufreq'
+        if self.comp == "amd-pstate":
+            if IS_AMD:
+                self.cpufreq_driver_match('amd-pstate')
+            if not linux_modules.module_is_loaded('amd-pstate-ut'):
+                if not linux_modules.load_module('amd-pstate-ut'):
+                    self.cancel("The system is not loaded with amd-pstate-ut module.\
+                            Unable to load it. Try this test by loading amd-pstate-ut module")
+            self.test_mode = self.params.get('test', default='')
+            self.testdir = 'tools/testing/selftests/amd-pstate'
         if self.comp == "bpf":
             self.test_mode = self.params.get('test_mode', default='')
             self.testdir = 'tools/testing/selftests/bpf'
@@ -168,7 +183,7 @@ class kselftest(Test):
                             self.buldir = os.path.join(self.workdir, l_dir)
                             break
             self.sourcedir = os.path.join(self.buldir, self.testdir)
-            if (self.comp != "cpufreq" and self.comp != "bpf"):
+            if (self.comp != "cpufreq" and self.comp != "bpf" and self.comp != "amd-pstate"):
                 self.sourcedir_comp = os.path.join(self.buldir, self.testdir, self.comp)
                 if os.chdir(self.sourcedir_comp) is None:
                     if self.subcomp_test:
@@ -222,7 +237,7 @@ class kselftest(Test):
                            shell=True, sudo=True)
             process.system("sed -i 's/^.*cmsg_time.sh/#&/g' %s" % make_path,
                            shell=True, sudo=True)
-        if (self.comp != "cpufreq" and self.comp != "bpf"):
+        if (self.comp != "cpufreq" and self.comp != "bpf" and self.comp != "amd-pstate"):
             if self.comp:
                 build_str = '-C %s' % self.comp
             if build.make(self.sourcedir, extra_args='%s' % build_str):
@@ -238,6 +253,8 @@ class kselftest(Test):
             self.bpf()
         if self.comp == "cpufreq":
             self.cpufreq()
+        if self.comp == "amd-pstate":
+            self.amd_pstate()
         else:
             if self.subtest == "ksm_tests":
                 self.ksmtest()
@@ -325,6 +342,14 @@ class kselftest(Test):
         """
         os.chdir(self.sourcedir)
         cmd = "./main.sh -t " + self.test_mode
+        self.run_cmd(cmd)
+
+    def amd_pstate(self):
+        """
+        Execute the kernel amd-pstate selftests
+        """
+        os.chdir(self.sourcedir)
+        cmd = "./run.sh -c " + self.test_mode
         self.run_cmd(cmd)
 
     def subcomp_single_test(self):
