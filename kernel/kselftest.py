@@ -135,7 +135,7 @@ class kselftest(Test):
                 if not os.path.exists(os.path.join(linux_dir, "Makefile")):
                     self.cancel(
                         "Custom kernel source directory %s lacks a Makefile" % linux_dir)
-                path = [linux_dir]
+                self.buldir = linux_dir
             if self.run_type == 'upstream':
                 location = self.params.get('location', default='https://github.c'
                                            'om/torvalds/linux/archive/master.zip')
@@ -155,29 +155,27 @@ class kselftest(Test):
                         git.get_repo(location, branch=git_branch,
                                      destination_dir=self.workdir)
                         path = glob.glob(self.workdir)
-            for l_dir in path:
-                if os.path.isdir(l_dir) and 'Makefile' in os.listdir(l_dir):
-                    self.buldir = os.path.join(self.workdir, l_dir)
-                    break
+                    for l_dir in path:
+                        if os.path.isdir(l_dir) and 'Makefile' in os.listdir(l_dir):
+                            self.buldir = os.path.join(self.workdir, l_dir)
+                            break
             self.sourcedir = os.path.join(self.buldir, self.testdir)
-            self.sourcedir_comp = os.path.join(self.buldir, self.testdir, self.comp)
-            if os.chdir(self.sourcedir_comp) is None:
-                if self.subcomp_test:
-                    test_name = self.subcomp_test.split(":")[1]
-                    for name in pathlib.Path(self.sourcedir_comp).rglob("%s*" % test_name):
-                        self.log.info("Test case exists.")
-                        break
+            if (self.comp != "cpufreq" and self.comp != "bpf"):
+                self.sourcedir_comp = os.path.join(self.buldir, self.testdir, self.comp)
+                if os.chdir(self.sourcedir_comp) is None:
+                    if self.subcomp_test:
+                        test_name = self.subcomp_test.split(":")[1]
+                        for name in pathlib.Path(self.sourcedir_comp).rglob("%s*" % test_name):
+                            self.log.info("Test case exists.")
+                            break
                     else:
                         self.cancel("Test case does not exists.")
-            else:
-                self.cancel("Test component does not exists.")
-            if (self.comp != "cpufreq" and self.comp != "bpf"):
+                else:
+                    self.cancel("Test component does not exists.")
                 process.system("make headers -C %s" % self.buldir, shell=True,
                                sudo=True)
                 process.system("make install -C %s" % self.sourcedir,
                                shell=True, sudo=True)
-            else:
-                self.buldir = self.params.get('location', default='')
         else:
             # Make sure kernel source repo is configured
             if self.detected_distro.name in ['centos', 'fedora', 'rhel']:
