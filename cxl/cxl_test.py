@@ -132,3 +132,11 @@ class cxl_test(Test):
                 self.fail_count = int(line.split(':')[-1].strip())
                 if self.fail_count > 0:
                     self.fail("ndctl cxl tests failed, fail count = %d, check the debug log" % self.fail_count)
+            if "Skipped:" in line:
+                self.skip_count = int(line.split(':')[-1].strip())
+                if self.skip_count > 0:
+                    self.cancel("ndctl cxl tests skipped, skipped test count = %d, check the debug log" % self.skip_count)
+            if "Ok:" in line:
+                self.ok_count = int(line.split(':')[-1].strip())
+                if self.ok_count == "12":
+                    self.log.info("ndctl cxl tests passed.")
