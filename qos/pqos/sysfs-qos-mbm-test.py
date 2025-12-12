@@ -72,7 +72,7 @@ class Resctrl(Test):
     #  Execute memtester for a while and verify CAT allocation
     #
     #  Instruction:
-    #  1. Run the "taskset -c 0 ./memtester 100M > /dev/tmp &" to run memtester
+    #  1. Run the "taskset -c 0 100M > /dev/tmp &" to run memtester
     #  2. Monitor the cache occupancy
     #  Result:
     #  Observe in output file
@@ -80,7 +80,7 @@ class Resctrl(Test):
     def test_pqos_mbm_monitor(self):
         log_file = os.path.join(self.outputdir,"sysfs-qos-mbm.log")
         logging.info("Execute memtester")
-        run_memtest = subprocess.Popen("taskset -c 0 ./memtester-4.5.1/memtester 100M 5 > /dev/tmp", shell=True)
+        run_memtest = subprocess.Popen("taskset -c 0 memtester 100M 5 > /dev/tmp", shell=True)
 
         while run_memtest.poll() is None:
             time.sleep(2)
@@ -97,14 +97,18 @@ class Resctrl(Test):
         logging.info("-" * 30)
         logging.info("Check for MBM logs in %s" %log_file)
         fpointer = open(log_file, "r")
+        match = False
         for i in fpointer.readlines():
             line = re.findall(r'[7|8]\d{3}', i)
             if line:
-                logging.info("Match found: %d", line)
+                logging.info("Match found: %s", line)
+                match = True
                 break
             else:
                 logging.error("Failed to get 8MB memory bandwidth")
         fpointer.close()
+        if match == False:
+            self.fail("Failed to get 8MB memory bandwidth, check the debug.log")
         logging.info("=" * 30)
 
     def test_pqos_reset(self):
