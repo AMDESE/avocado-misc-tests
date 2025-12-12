@@ -20,7 +20,7 @@ CXL testing is divided into two main categories:
   the emulated CXL tests.
 
   # Prerequisites and Setup
-  1. Clone the Linux source - v6.18.1 or later stable release
+  1. Clone the Linux source - v6.18 or later stable release
 
   2. Build the kernel with the following CXL-related configuration options enabled:
      CONFIG_CXL_BUS=m
@@ -148,4 +148,7 @@ CXL testing is divided into two main categories:
 	RESULTS    : PASS 1 | ERROR 0 | FAIL 0 | SKIP 0 | WARN 0 | INTERRUPT 0 | CANCEL 3
 	JOB HTML   : /root/elves/results/job-2025-12-03T05.53-5a3b29b/results.html
 	JOB TIME   : 82.56 s
+# Expected Failures:
+  The CXL emulation tests, particularly cxl-labels, are expected to fail if the system’s CXL card does not
+  support Dynamic Capacity Device (DCD) capabilities.
 #EOF
