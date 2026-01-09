@@ -11,7 +11,7 @@ import sys
 import subprocess
 import os.path
 import logging
-from avocado.utils import distro
+from avocado.utils import distro, process
 from avocado.utils.software_manager.manager import SoftwareManager
 
 class CommonLib:
@@ -20,11 +20,11 @@ class CommonLib:
         """
         Run a cmd[], return the exit code, stdout, and stderr.
         """
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, shell=True, universal_newlines=True)
-        stdout, stderr = proc.communicate()
+        proc = process.run(cmd, shell=True, sudo=True, ignore_status=True)
+        stdout = proc.stdout.decode('utf-8')
+        stderr = proc.stderr.decode('utf-8')
 
-        return proc.returncode, stdout, stderr
+        return proc.exit_status, stdout, stderr
 
     def install_preq(self):
         """
