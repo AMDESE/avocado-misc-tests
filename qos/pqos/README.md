@@ -12,9 +12,15 @@ The shared resources monitored and controlled are L3 Cache Occupancy and L3 Syst
 feature set are enumerated through CPUID identifiers so that software can easily support multiple instances of the feature.
 The CPUID identifiers indicate the presence of MSR’s used to interact with the QOS features.
 
+QoS ABMC - Assignable Bandwidth Monitoring Counters (ABMC), also referred as RMID Pinning
+This enable users to explicitly assign hardware counters to RMID-event pairs, a practice also called QoS RMID pinning.
+This practice guarantees that hardware continuously tracks the assigned RMID until it is explicitly unassigned.
+
 Links:
 https://www.kernel.org/doc/Documentation/x86/resctrl.rst
 https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/programmer-references/40332.pdf
+https://docs.amd.com/api/khub/documents/VuNrmUG_yfhPVgGYcFlkZg/content
+https://docs.amd.com/v/u/en-US/40332-PUB_4.08
 
 # Linux QoS Interfaces
 QoS functionality can be achieved by following interfaces:
@@ -49,6 +55,7 @@ a. Memory bandwidth monitoring
 b. Memory bandwidth control
 c. L3 cache occupancy monitoring
 d. L3 cache allocation control
+e. Assignable Bandwidth Monitoring Counters (ABMC) support also known as RMID Pinning
 
 # PQOS tests
 Avocado framework is used to run "pqos" tests. Setup avocado and install pqos tool, cpuid, msr-tools for tests to run successfully.
@@ -63,6 +70,9 @@ The following tests are covered as part of PQOS.
    # avocado run --max-parallel-tasks=1 sysfs-qos-llc-test.py
 5. sysfs-qos-mbm-test.py: Checks for resctrl support and detect for L3 resctrl
    # avocado run --max-parallel-tasks=1 sysfs-qos-mbm-test.py
+6. sysfs-qos-rmid-pin-test.py: Detect ABMC feature (also called as RMID Pinning) support by checking for assignable monitoring support mode([mbm_event]),
+	checks for total number of assignable counters and number of counters available for assignment. Also, tests for assign/unassign a MBM event
+        across the domains.
 
 # Known Issues
 1. intel-cmt-cat tool issue
@@ -82,4 +92,7 @@ The following tests are covered as part of PQOS.
                # ls -l /var/lock/libpqos
                  -rw-r--r-- 1 amd amd 0 Mar  7 04:27 /var/lock/libpqos
                # rm /var/lock/libpqos
+3. Expected Failure:
+   In cache allocation tests (particularly test_pqos_mbm_monitor), reported total memory bandwidth may intermittently not align with the memory
+   bandwidth limit set during the test, causing the test to fail. This is under investigation.
 #EOF

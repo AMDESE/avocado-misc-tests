@@ -28,6 +28,8 @@ L3CACHE_MON1_CPUID = "0x0000000f 0x01"
 CAPMASKLEN_CPUID = "0x80000020 0x01"
 L3CACHE_ALLOC_CPUID = "0x00000010 0x00"
 BANDWIDTH_ENFORCE_CPUID = "0x80000008 0x00"
+RMIDPIN_CPUID = "0x80000020 0x00"
+RMIDPIN_COUNT_CPUID = "0x80000020 0x05"
 
 class Pqos(Test):
 
@@ -138,6 +140,33 @@ class Pqos(Test):
                     self.log.info("PASS: Bandwidth Enforcement Set")
                 else:
                     self.log.info("CANCEL: Bandwidth Enforcement Unset")
+
+            # Assignable Bandwidth Monitoring Counters (ABMC) also called as RMID Pinning.
+            # This guarantees that hardware continuously tracks the assigned RMID until it is explicitly unassigned.
+            # CPUID 0x8000_0020, EBX bit 5 (ECX=0) indicates RMID Pinning support.
+            if RMIDPIN_CPUID in line:
+                regs = line.split(" ")
+                try:
+                    rmidpin = int(regs[6][6:14], 16)
+                except (IndexError, ValueError):
+                    self.cancel("RMID Pinning (ABMC) not supported")
+                if (rmidpin & 0x20):
+                    self.log.info("PASS: RMID Pinning (ABMC) supported")
+                else:
+                    self.cancel("RMID Pinning (ABMC) not supported by the hardware")
+
+            # CPUID Fn8000_0020_EBX_x5 Assignable Bandwidth Monitoring Counters - (ECX=5)
+                # Maximum Supported Assignable Bandwidth Monitoring Counter ID
+            if RMIDPIN_COUNT_CPUID in line:
+                regs = line.split(" ")
+                try:
+                    rmid_max_counter = int(regs[6][6:14], 16)
+                except (IndexError, ValueError):
+                    self.cancel("RMID Pinning (ABMC) max counter invalid")
+                if (rmid_max_counter & 0xF):
+                    self.log.info("Pass: Maximum number of RMID Pinning (ABMC) counters supported = %d" % rmid_max_counter)
+                else:
+                    self.cancel("RMID Pinning (ABMC) max counter invalid")
 
     @staticmethod
     def init_MSR():
