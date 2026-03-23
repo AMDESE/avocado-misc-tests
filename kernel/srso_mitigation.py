@@ -59,27 +59,50 @@ class SRSOTest(Test):
         if build.make(self.workdir, extra_args='srso'):
             self.cancel('Building the selftest failed')
 
+    def get_cmdline_dict(self):
+        """
+        Prepare a dictionary of kernel commandline parameters.
+        """
+        filename = '/proc/cmdline'
+        cmdline = ""
+        try:
+            cmdline = genio.read_file(filename)
+        except Exception as err:
+            self.fail("%s file access failed. %s" % (filename, err))
+        return dict(arg.split('=', 1) if '=' in arg else (arg, True)
+                for arg in cmdline.split())
+
     def test_sysfs(self):
         """
         Check the vulnerability status from sysfs.
         """
         filename = '/sys/devices/system/cpu/vulnerabilities/spec_rstack_overflow'
+        content = ""
         try:
             content = genio.read_file(filename)
-        except PermissionError as err:
-            if 'Operation not permitted' not in str(err):
-                self.fail("%s file access not permitted." % filename)
+        except Exception as err:
+            self.fail("%s file access failed. %s" % (filename, err))
+
+        # Since the vulnerability status depends on the kernel command line parameters,
+        # we inform that as well to the user.
+        cmdline_dict = self.get_cmdline_dict()
+        parameter = "spec_rstack_overflow"
+        message = ""
+        if parameter in cmdline_dict:
+            message = ", Kernel booted with %s=%s" % (parameter, cmdline_dict[parameter])
 
         if 'Vulnerable' in content:
-            if 'no microcode' in content.lower():
-                self.fail('Processor is vulnerable, and no mitigation applied')
+            if 'Safe RET' in content:
+                self.log.warn('Safe RET mitigation has been applied %s', message)
+            elif 'Microcode' in content:
+                self.log.warn('Microcode addressing mitigation has been applied %s', message)
             else:
-                self.log.warn('Processor is partially vulnerable')
+                self.fail('Processor is vulnerable, and no mitigation applied %s' % message)
 
         # The vulnerability is mitigated via software microcode, but processor
         # is still vulnerable. So, we warn the user.
-        if 'Mitigation' in content:
-            self.log.warn('Microcode addressing the mitigation has been applied')
+        elif 'Mitigation' in content:
+            self.log.warn('Microcode addressing the mitigation has been applied %s', message)
 
     def test_srso_selftest(self):
         """
