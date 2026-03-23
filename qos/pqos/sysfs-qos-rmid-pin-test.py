@@ -44,7 +44,7 @@ class RMID(Test):
         if "[mbm_event]" in mbm_mode:
             self.log.info(f"PASS: MBM event mode detected - {mbm_mode}, RMID Pinning (ABMC) supported")
         else:
-            self.cancel("RMID Pinning (ABMC) is not supported by the kernel")
+            self.cancel("RMID Pinning (ABMC), MBM event is not enabled")
 
     # Test to check assignable counters supported
     def test_check_assign_cnters(self):
