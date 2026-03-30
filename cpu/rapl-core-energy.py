@@ -50,11 +50,29 @@ class rapl_core(Test):
         fd.close()
         return int(lines[0].strip())
 
+    def get_supported_cpus(self):
+        cpumask_path = "/sys/bus/event_source/devices/power_core/cpumask"
+        with open(cpumask_path, 'r') as fd:
+            raw = fd.read().strip()
+        self.log.info(f"power_core cpumask: {raw}")
+        supported = set()
+        for part in raw.split(','):
+            if '-' in part:
+                start, end = part.split('-', 1)
+                supported.update(range(int(start), int(end) + 1))
+            else:
+                supported.add(int(part))
+        return supported
+
     def compute_package_cpu_map(self):
         self.package_cpu_map = {}
+        supported_cpus = self.get_supported_cpus()
+        self.log.info(f"CPUs supported by power_core cpumask: {sorted(supported_cpus)}")
 
         num_cpus = int(process.system_output("nproc"))
         for i in range(num_cpus):
+            if i not in supported_cpus:
+                continue
             package_id = self.read_topology_attr(i, 'physical_package_id')
             self.log.info(f"CPU {i} physical_package_id = {package_id}")
             if package_id not in self.package_cpu_map.keys():
@@ -129,13 +147,17 @@ class rapl_core(Test):
         return random.choice(newlist)
 
     def test(self):
-        # Get the list of CPUs present in each package
+        # Get the list of CPUs present in each package (filtered by cpumask)
         self.compute_package_cpu_map()
+        if not self.package_cpu_map:
+            self.cancel("No CPUs found in the power_core cpumask. "
+                        "RAPL core-energy perf event is not supported on this system.")
         # Loop over all packages in the system
         for pkg_id in self.package_cpu_map.keys():
             covered_cpus = []
-            # Perform the validate for 5 random CPUs from the package
-            for i in range(5):
+            nr_cpus_to_test = min(5, len(self.package_cpu_map[pkg_id]))
+            # Perform the validate for up to 5 random CPUs from the package
+            for i in range(nr_cpus_to_test):
                 cpu = self.get_random_cpu(self.package_cpu_map[pkg_id], covered_cpus)
                 success = self.load_and_test(cpu)
                 # Kill all the yes instances
