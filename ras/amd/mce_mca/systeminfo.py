@@ -30,7 +30,7 @@ def install_preq():
     sm = SoftwareManager()
     dist = distro.detect()
     deps = ['libtool']
-    if dist.name in ['Ubuntu', 'rhel', 'debian']:
+    if dist.name in ['Ubuntu', 'rhel', 'debian', 'anolis']:
         for package in deps:
             if not sm.check_installed(package) and not sm.install(package):
                 logging.error("%s is needed for the qos tests to run" % package)
