@@ -208,8 +208,6 @@ class kselftest(Test):
                         for name in pathlib.Path(self.sourcedir_comp).rglob("%s*" % test_name):
                             self.log.info("Test case exists.")
                             break
-                    else:
-                        self.cancel("Test case does not exists.")
                 else:
                     self.cancel("Test component does not exists.")
                 process.system("make headers -C %s" % self.buldir, shell=True,
