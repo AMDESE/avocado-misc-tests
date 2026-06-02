@@ -18,9 +18,8 @@
 Validate 5 level page table support in v2 iommu page table mode
 """
 
-from avocado import Test
-from avocado import skipUnless
-from avocado.utils import cpu, dmesg, process
+from avocado import Test, skipUnless
+from avocado.utils import cpu, dmesg
 
 
 def get_v2_pgtbl_lvl_sup_bits():
@@ -60,7 +59,9 @@ def get_v2pgtbl_mode():
     Parse dmesg to get the current v2 page table paging mode.
     """
     for mode in ["4", "5"]:
-        if dmesg.check_kernel_logs(f"V2 page table enabled (Paging mode : {mode} level)"):
+        if dmesg.check_kernel_logs(
+            f"V2 page table enabled (Paging mode : {mode} level)"
+        ):
             return mode
     return None
 

@@ -40,22 +40,30 @@ class kselftest(Test):
     """
     testdir = 'tools/testing/selftests'
 
-    def find_match(self, match_str, line, results_path):
+    def find_match(self, match_str, line, results_path=None):
         match = re.search(match_str, line)
         if match:
             if "SKIP" in line:
                 self.error = "SKIP"
-                output = process.run('grep "SKIP" %s' % results_path, ignore_status=True)
-                if (output):
-                    self.log.info("Testcase Skipped. Log from debug: %s, %s" %
-                          (match.group(0), output.stdout.decode("utf-8")))
+                if results_path:
+                    output = process.run('grep "SKIP" %s' % results_path,
+                                         ignore_status=True)
+                    if output:
+                        self.log.info("Testcase Skipped. Log from debug: %s, %s" %
+                                      (match.group(0),
+                                       output.stdout.decode("utf-8")))
+                    else:
+                        self.log.info("Testcase Skipped. Log from debug: %s" %
+                                      match.group(0))
                 else:
-                    self.log.info("Testcase Skipped. Log from debug: %s, %s" %
-                          match.group(0))
+                    self.log.info("Testcase Skipped. Log from debug: %s" %
+                                  match.group(0))
             else:
                 self.error = True
-                self.log.info("Testcase failed. Log from debug: %s" %
-                          match.group(0))
+                failed_test = match.group(0).strip()
+                if failed_test not in self.failed_tests:
+                    self.failed_tests.append(failed_test)
+                self.log.info("Testcase failed. Log from debug: %s" % failed_test)
 
     def cpufreq_driver_match(self, driver):
         cpufreq_drv_file = f"/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver"
@@ -118,7 +126,8 @@ class kselftest(Test):
             deps.extend(['glibc', 'glibc-devel', 'popt-devel', 'sudo',
                          'libcap2', 'libcap-devel', 'libcap-ng-devel',
                          'fuse', 'fuse-devel', 'glibc-devel-static',
-                         'traceroute', 'iproute2', 'socat', 'libnuma-devel'])
+                         'traceroute', 'iproute2', 'socat', 'libnuma-devel',
+                         'coreutils'])
             if self.distro_ver >= 15:
                 deps.extend(['libhugetlbfs-devel'])
             else:
@@ -238,6 +247,8 @@ class kselftest(Test):
             process.system("sed -i 's/^.*cmsg_time.sh/#&/g' %s" % make_path,
                            shell=True, sudo=True)
         if (self.comp != "cpufreq" and self.comp != "bpf" and self.comp != "amd-pstate"):
+            process.system("make headers -C %s" % self.buldir, shell=True,
+                           sudo=True)
             if self.comp:
                 build_str = '-C %s' % self.comp
             if build.make(self.sourcedir, extra_args='%s' % build_str):
@@ -248,6 +259,7 @@ class kselftest(Test):
         Execute the kernel selftest
         """
         self.error = False
+        self.failed_tests = []
         kself_args = self.params.get("kself_args", default='')
         if self.comp == "bpf":
             self.bpf()
@@ -279,18 +291,35 @@ class kselftest(Test):
                 if self.subcomp_test:
                     self.find_match(r'selftests:(.*) # SKIP', line, results_path)
                 self.find_match(r'not ok (.*) selftests:(.*)', line, results_path)
+                self.find_match(r'# not ok \d+ .* # exit=\d+', line, results_path)
             elif self.run_type == 'distro':
                 if self.detected_distro.name == 'SuSE' and\
                         self.distro_ver == 12:
                     self.find_match(r'selftests:(.*)\[FAIL\]', line, results_path)
                 else:
                     self.find_match(r'not ok (.*) selftests:(.*)', line, results_path)
+                    self.find_match(r'# not ok \d+ .* # exit=\d+', line, results_path)
 
         if self.error:
             if self.error == "SKIP":
                 self.cancel("Test case canceled. Refer to the log messages for the reason.")
-            else:
-                self.fail("Testcase failed during selftests")
+            summary_lines = [
+                "",
+                "="*70,
+                "FAILED SELFTESTS SUMMARY:",
+                "="*70
+            ]
+            for idx, failed_test in enumerate(self.failed_tests, 1):
+                summary_lines.append(f"{idx}. {failed_test}")
+            summary_lines.extend([
+                "="*70,
+                f"Total failed tests: {len(self.failed_tests)}",
+                "="*70,
+                ""
+            ])
+            summary_msg = "\n".join(summary_lines)
+            self.log.error(summary_msg)
+            self.fail(f"Testcase failed during selftests. Total failed tests: {len(self.failed_tests)}")
 
     def run_cmd(self, cmd):
         """
