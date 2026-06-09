@@ -113,42 +113,51 @@ CXL testing is divided into two main categories:
 
      driver-basic.py: Tests checking whether the CXL driver successfully loaded, enumerated, and set up present CXL type 3 devices.
 
+     online-offline.py: Tests onlining and offlining CXL memory in system-ram mode and converting system-ram devices to devdax mode.
+
   3. Run the Avocado CXL tests - cxl_test.py
      # avocado run cxl_test.py
      # Example output for pass case:
-	root@xxxx:~/elves/tests/avocado-misc-tests/cxl# avocado run cxl_test.py
-	JOB ID     : 912602d071190e3186f79ed1ccaf78dad517e375
-	JOB LOG    : /root/elves/results/job-2025-12-03T04.56-912602d/job.log
-	 (1/4) cxl_test.py:cxl_test.test_cxl_numa: STARTED
-	 (1/4) cxl_test.py:cxl_test.test_cxl_numa: PASS (3.28 s)
-	 (2/4) cxl_test.py:cxl_test.test_daxctl: STARTED
-	 (2/4) cxl_test.py:cxl_test.test_daxctl: PASS (3.14 s)
-	 (3/4) cxl_test.py:cxl_test.test_driver_basic: STARTED
-	 (3/4) cxl_test.py:cxl_test.test_driver_basic: PASS (3.54 s)
-	 (4/4) cxl_test.py:cxl_test.test_ndctl_cxl: STARTED
-	 (4/4) cxl_test.py:cxl_test.test_ndctl_cxl: PASS (37.43 s)
-	RESULTS    : PASS 4 | ERROR 0 | FAIL 0 | SKIP 0 | WARN 0 | INTERRUPT 0 | CANCEL 0
-	JOB HTML   : /root/elves/results/job-2025-12-03T04.56-912602d/results.html
-	JOB TIME   : 192.90 s
+	root@xxxx:/elves/tests/avocado-misc-tests/cxl# avocado run cxl_test.py
+	JOB ID     : 504ea753d541592572c3ad1f9987c799f678c08d
+	JOB LOG    : /elves/results/job-2026-06-03T06.12-504ea75/job.log
+	 (1/5) cxl_test.py:cxl_test.test_cxl_numa: STARTED
+	 (1/5) cxl_test.py:cxl_test.test_cxl_numa: PASS (5.36 s)
+	 (2/5) cxl_test.py:cxl_test.test_daxctl: STARTED
+	 (2/5) cxl_test.py:cxl_test.test_daxctl: PASS (3.40 s)
+	 (3/5) cxl_test.py:cxl_test.test_driver_basic: STARTED
+	 (3/5) cxl_test.py:cxl_test.test_driver_basic: PASS (3.30 s)
+	 (4/5) cxl_test.py:cxl_test.test_online_offline: STARTED
+	 (4/5) cxl_test.py:cxl_test.test_online_offline: PASS (6.09 s)
+	 (5/5) cxl_test.py:cxl_test.test_ndctl_cxl: STARTED
+	 (5/5) cxl_test.py:cxl_test.test_ndctl_cxl: PASS (4.04 s)
+	RESULTS    : PASS 5 | ERROR 0 | FAIL 0 | SKIP 0 | WARN 0 | INTERRUPT 0 | CANCEL 0
+	JOB HTML   : /elves/results/job-2026-06-03T06.12-504ea75/results.html
+	JOB TIME   : 34.45 s
 
      If the tests are executed on a system without a CXL card, they will be cancelled. Sample cancelled tests:
      # Example output for a cancelled case in CXL device testing.
      # These tests were run on a system where no CXL card was present.
 	root@xxxx:~/elves/tests/avocado-misc-tests/cxl# avocado run cxl_test.py
-	JOB ID     : 5a3b29bf1eb67e4c504f49336d22b8d112fbd242
-	JOB LOG    : /root/elves/results/job-2025-12-03T05.53-5a3b29b/job.log
-	 (1/4) cxl_test.py:cxl_test.test_cxl_numa: STARTED
-	 (1/4) cxl_test.py:cxl_test.test_cxl_numa: CANCEL:  No CXL devices present, check the debug log (30.02 s)
-	 (2/4) cxl_test.py:cxl_test.test_daxctl: STARTED
-	 (2/4) cxl_test.py:cxl_test.test_daxctl: CANCEL:  No CXL devices present, check the debug log (2.40 s)
-	 (3/4) cxl_test.py:cxl_test.test_driver_basic: STARTED
-	 (3/4) cxl_test.py:cxl_test.test_driver_basic: CANCEL:  No CXL devices present, check the debug log (2.43 s)
-	 (4/4) cxl_test.py:cxl_test.test_ndctl_cxl: STARTED
-	 (4/4) cxl_test.py:cxl_test.test_ndctl_cxl: PASS (36.30 s)
-	RESULTS    : PASS 1 | ERROR 0 | FAIL 0 | SKIP 0 | WARN 0 | INTERRUPT 0 | CANCEL 3
-	JOB HTML   : /root/elves/results/job-2025-12-03T05.53-5a3b29b/results.html
-	JOB TIME   : 82.56 s
+	JOB ID     : eadacfb658c5988c76399ce2bd6a7b0be095d014
+	JOB LOG    : /root/elves/results/job-2026-06-03T06.24-eadacfb/job.log
+	 (1/5) cxl_test.py:cxl_test.test_cxl_numa: STARTED
+	 (1/5) cxl_test.py:cxl_test.test_cxl_numa: CANCEL:  No CXL devices present, check the debug log (10.03 s)
+	 (2/5) cxl_test.py:cxl_test.test_daxctl: STARTED
+	 (2/5) cxl_test.py:cxl_test.test_daxctl: CANCEL:  No CXL devices present, check the debug log (2.82 s)
+	 (3/5) cxl_test.py:cxl_test.test_driver_basic: STARTED
+	 (3/5) cxl_test.py:cxl_test.test_driver_basic: CANCEL:  No CXL devices present, check the debug log (2.86 s)
+	 (4/5) cxl_test.py:cxl_test.test_online_offline: STARTED
+	 (4/5) cxl_test.py:cxl_test.test_online_offline: CANCEL:  No DAX devices found, check the debug log (2.86 s)
+	 (5/5) cxl_test.py:cxl_test.test_ndctl_cxl: STARTED
+	 (5/5) cxl_test.py:cxl_test.test_ndctl_cxl: CANCEL: ndctl cxl tests skipped, skipped test count = 14, check the debug log (6.80 s)
+	RESULTS    : PASS 0 | ERROR 0 | FAIL 0 | SKIP 0 | WARN 0 | INTERRUPT 0 | CANCEL 5
+	JOB HTML   : /root/elves/results/job-2026-06-03T06.24-eadacfb/results.html
+	JOB TIME   : 40.90 s
+
 # Expected Failures:
-  The CXL emulation tests, particularly cxl-labels, are expected to fail if the system’s CXL card does not
-  support Dynamic Capacity Device (DCD) capabilities.
+	- The CXL emulation tests, particularly cxl-labels, are expected to fail if the system’s CXL card does not
+	support Dynamic Capacity Device (DCD) capabilities.
+	- Running CXL emulation tests repeatedly results in test failures and may cause kernel panics. The underlying
+	issues should be fixed in the upstream kernel.
 #EOF

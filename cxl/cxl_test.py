@@ -53,7 +53,8 @@ class cxl_test(Test):
         smm = SoftwareManager()
         for package in ['gcc', 'make', 'meson-1.5', 'cmake', 'libkmod-dev', 'cargo',
                         'libudev-dev', 'libjson-c-dev', 'libtracefs-dev', 'asciidoctor',
-                        'keyutils', 'libkeyutils-dev', 'libiniparser-dev', 'libtraceevent-dev']:
+                        'keyutils', 'libkeyutils-dev', 'libiniparser-dev', 'libtraceevent-dev',
+                        'daxctl', 'libdaxctl-dev']:
             if not smm.check_installed(package) and not smm.install(package):
                 self.cancel('%s is needed for the ndctl cxl test to be run' % package)
         cargo_pkg_cmd = "cargo install uefisettings"
@@ -65,7 +66,7 @@ class cxl_test(Test):
         self.url_ndctl = self.params.get('url_ndctl',
                 default="https://github.com/pmem/ndctl")
         git.get_repo(self.url_ndctl, branch='main', destination_dir=self.workdir)
-        for file_name in ['cxl-numa.py', 'daxctl.py', 'driver-basic.py', 'uefi.py']:
+        for file_name in ['cxl-numa.py', 'daxctl.py', 'driver-basic.py', 'uefi.py', 'online-offline.py']:
             shutil.copyfile(self.get_data(file_name),
                         os.path.join(self.teststmpdir, file_name))
         self.config_parameters = []
@@ -112,6 +113,12 @@ class cxl_test(Test):
         '''
         self.run_cmd("driver-basic")
 
+    def test_online_offline(self):
+        '''
+        Run online/offline tests
+        '''
+        self.run_cmd("online-offline")
+
     def test_ndctl_cxl(self):
         '''
         Run ndctl cxl tests
@@ -122,8 +129,23 @@ class cxl_test(Test):
         process.run("meson setup build", sudo=True, shell=True, ignore_status=True)
         process.run("meson compile -C build", sudo=True, shell=True, ignore_status=True)
 
+        cmd = "meson test -C build --no-rebuild --list --suite cxl | awk '{print $3}'"
+        output = process.system_output(cmd, shell=True, ignore_status=True,
+                                     sudo=True).decode("utf-8")
+        self.log.info("CXL Test Lists: %s" % output)
+        # Split lines and skip tests that causing kernel panic
+        skip_tests = {"cxl-sanitize.sh", "cxl-translate.sh", "cxl-security.sh", "cxl-poison.sh", \
+                "cxl-qos-class.sh", "cxl-elc.sh"}
+        tests = [
+            line.strip()
+            for line in output.splitlines()
+            if line.strip() and line.strip() not in skip_tests
+        ]
+        # Join into space-separated string
+        test_list = " ".join(tests)
+        self.log.info("Actual test lists: %s" % test_list)
         self.log.info("Running ndctl cxl tests....")
-        cmd = "meson test -C build --no-rebuild --suite cxl"
+        cmd = "meson test -C build --no-rebuild --suite cxl %s" % test_list
         results = process.system_output(cmd, shell=True, ignore_status=True,
                                      sudo=True).decode("utf-8")
         self.log.info("results: %s" % results)
