@@ -47,7 +47,7 @@ class cxl_test(Test):
         '''
         self.pwd = os.getcwd()
         self.dist = distro.detect()
-        if self.dist.name not in ['Ubuntu', 'debian', 'anolis']:
+        if self.dist.name not in ['Ubuntu', 'debian', 'anolis', 'openEuler']:
             self.cancel('Unsupported OS %s' % self.dist.name)
 
         smm = SoftwareManager()
