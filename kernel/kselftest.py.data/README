@@ -174,3 +174,58 @@ run_type: !mux
     upstream:
         type: 'upstream'
         location: "https://github.com/torvalds/linux/archive/master.zip"
+
+VFIO Test Documentation :-
+
+  Runs the vfio kernel selftests from tools/testing/selftests/vfio.
+  Binds the given PCI device to vfio-pci before the run and restores it in
+  tearDown.
+
+  This test must run as root.
+
+  The test is cancelled early on AMD CPUs if kernel logs do not contain
+  "AMD-Vi" meaning iommu is disabled.
+
+  Before running, the test reserves hugepages (default 512 pages of the system
+  default hugepage size) for hugetlb subtests. tearDown restores the prior
+  nr_hugepages value. If dmesg does not report interrupt remapping enabled
+  (e.g. intremap=off), it also sets allow_unsafe_interrupts=Y for iommufd and
+  for vfio_iommu_type1 (type1 path). Under that same interrupt-remapping
+  condition, tearDown sets allow_unsafe_interrupts=N on both module parameters.
+
+  Running kernel must have the following enabled:
+  - CONFIG_VFIO
+  - CONFIG_VFIO_PCI
+  - CONFIG_IOMMUFD
+  - CONFIG_VFIO_DEVICE_CDEV
+  - CONFIG_AMD_IOMMU_IOMMUFD (AMD platforms only)
+
+kernel/kselftest.py.data/kselftest_vfio.yaml contains YAML parameters for
+vfio. The following parameters apply under the vfio component:
+1. comp         -> Must be "vfio"
+2. pci_device   -> PCI BDF (segment:bus:dev.fn)
+3. subtest      -> Selftest binary (default: vfio_iommufd_smoke_test). Use
+                   "all" for make -C vfio run_tests.
+4. nr_hugepages -> Number of hugepages to reserve (default: 512)
+5. type         -> Must be "upstream"
+6. location     -> URL of the kernel source archive or git repository
+7. kself_args   -> Extra arguments passed to make run_tests (when subtest is
+                   "all")
+
+Issues :-
+
+  When running the full vfio selftest suite (subtest "all"), the upstream test
+  vfio_pci_irq_test.msi.enable_trigger_disable may fail on some NVMe
+  controllers (for example Non-Volatile memory controller: Samsung Electronics
+  Co Ltd NVMe SSD Controller SM981/PM981/PM983).
+
+To run vfio smoke test with upstream code:
+
+component: !mux
+    vfio_smoke:
+        comp: "vfio"
+        pci_device: "0000:03:00.0"
+run_type: !mux
+    upstream:
+        type: 'upstream'
+        location: "https://github.com/torvalds/linux/archive/master.zip"

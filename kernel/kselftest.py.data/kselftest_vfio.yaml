@@ -1,0 +1,9 @@
+component: !mux
+    vfio_all:
+        comp: "vfio"
+        subtest: "all"
+        pci_device: ""
+run_type: !mux
+    upstream:
+        type: 'upstream'
+        location: "https://github.com/torvalds/linux/archive/v7.1-rc1.zip"

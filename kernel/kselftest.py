@@ -22,7 +22,7 @@ import pathlib
 
 from avocado import Test
 from avocado.core.exceptions import TestCancel, TestFail
-from avocado.utils import build, cpu, dmesg, memory, process
+from avocado.utils import build, cpu, dmesg, memory, pci, process
 from avocado.utils import distro, linux_modules
 from avocado.utils import archive, git
 from avocado.utils.software_manager.manager import SoftwareManager
@@ -40,6 +40,12 @@ class kselftest(Test):
     :avocado: tags=kernel
     """
     testdir = 'tools/testing/selftests'
+    VFIO_ALLOW_UNSAFE_IRQ_PATHS = (
+        ('/sys/module/iommufd/parameters/allow_unsafe_interrupts', 'iommufd',
+         'iommufd vfio tests may fail'),
+        ('/sys/module/vfio_iommu_type1/parameters/allow_unsafe_interrupts',
+         'vfio_iommu_type1', 'vfio type1 tests may fail'),
+    )
 
     def find_match(self, match_str, line, results_path=None):
         match = re.search(match_str, line)
@@ -271,6 +277,8 @@ class kselftest(Test):
             self.amd_pstate()
         if self.comp == "iommu":
             self.iommu()
+        elif self.comp == "vfio":
+            self.vfio()
         else:
             if self.subtest == "ksm_tests":
                 self.ksmtest()
@@ -467,6 +475,121 @@ class kselftest(Test):
         except Exception:
             self.cancel("Failed to setup and run iommufd kselftests")
 
+    def _vfio_allow_unsafe_interrupts(self, val):
+        for path, modname, warn_hint in self.VFIO_ALLOW_UNSAFE_IRQ_PATHS:
+            if os.path.isfile(path):
+                if val == 'Y':
+                    process.run('echo Y > %s' % path, shell=True, sudo=True)
+                    self.log.info('Interrupt remapping disabled; set '
+                                  'allow_unsafe_interrupts=Y (%s)', modname)
+                else:
+                    res = process.run('echo N > %s' % path, shell=True,
+                                      sudo=True, ignore_status=True)
+                    if res.exit_status != 0:
+                        self.log.warn('Could not set allow_unsafe_interrupts=N '
+                                      'at %s', path)
+                    else:
+                        self.log.info('Set allow_unsafe_interrupts=N at %s',
+                                      path)
+            elif val == 'Y':
+                self.log.warn('%s not found; %s', path, warn_hint)
+
+    def vfio(self):
+        """
+        Execute the kernel vfio selftests.
+
+        Requires a PCI device bound to vfio-pci via the upstream setup script.
+        """
+        try:
+            if IS_AMD:
+                if not dmesg.check_kernel_logs("AMD-Vi"):
+                    self.cancel("IOMMU is disabled.")
+
+            if platform.machine() not in ('x86_64', 'aarch64', 'arm64'):
+                self.cancel("vfio selftests are not supported on this platform")
+
+            self.pci_device = self.params.get('pci_device', default=None)
+            if not self.pci_device:
+                self.cancel("pci_device input must be provided for vfio kselftest.")
+            if self.pci_device not in pci.get_pci_addresses():
+                self.cancel("Please provide valid pci device input.")
+
+            for mod, config in (("vfio", "CONFIG_VFIO"),
+                                ("vfio_pci", "CONFIG_VFIO_PCI"),
+                                ("iommufd", "CONFIG_IOMMUFD")):
+                if not linux_modules.configure_module(mod, config):
+                    self.cancel("%s module cannot be configured (%s)" % (mod,
+                                                                         config))
+
+            if linux_modules.check_kernel_config("CONFIG_VFIO_DEVICE_CDEV") == \
+                    linux_modules.ModuleConfig.NOT_SET:
+                self.cancel("CONFIG_VFIO_DEVICE_CDEV is not enabled")
+
+            if IS_AMD:
+                if linux_modules.check_kernel_config("CONFIG_AMD_IOMMU_IOMMUFD") == \
+                        linux_modules.ModuleConfig.NOT_SET:
+                    self.cancel("CONFIG_AMD_IOMMU_IOMMUFD is not enabled")
+
+            if not os.path.exists('/dev/iommu'):
+                self.cancel("/dev/iommu not available after CONFIG_IOMMUFD setup")
+
+            if not dmesg.check_kernel_logs("Interrupt remapping enabled"):
+                self._vfio_allow_unsafe_interrupts('Y')
+            else:
+                self.log.info('Interrupt remapping enabled; '
+                              'allow_unsafe_interrupts not needed')
+
+            nr_hugepages = int(self.params.get('nr_hugepages', default=512))
+            hp_path = '/sys/kernel/mm/hugepages/hugepages-%skB/nr_hugepages' % (
+                memory.get_huge_page_size())
+            if os.path.isfile(hp_path):
+                try:
+                    with open(hp_path, 'r') as hp_file:
+                        prev_nr = int(hp_file.read().strip())
+                except (OSError, ValueError) as err:
+                    self.log.warn('Could not read prior nr_hugepages from %s: %s',
+                                  hp_path, err)
+                    prev_nr = None
+                process.run('echo %d > %s' % (nr_hugepages, hp_path),
+                            shell=True, sudo=True)
+                if prev_nr is not None:
+                    self._iommu_hp_restore = (hp_path, prev_nr)
+                self.log.info('Reserved %d hugepages via %s', nr_hugepages, hp_path)
+            else:
+                self.log.warn('%s not found; hugetlb vfio tests may fail',
+                              hp_path)
+
+            setup = os.path.join(self.sourcedir, 'vfio/scripts/setup.sh')
+            if not os.path.isfile(setup):
+                self.cancel("vfio setup script not found at %s" % setup)
+            process.run('bash %s %s' % (setup, self.pci_device), shell=True,
+                        sudo=True)
+
+            vfio_dir = os.path.join(self.sourcedir, 'vfio')
+            os.chdir(self.sourcedir)
+            kself_args = self.params.get("kself_args", default='')
+            if self.subtest == 'all':
+                cmd = ("export VFIO_SELFTESTS_BDF='%s'; make %s -C vfio run_tests"
+                       % (self.pci_device, kself_args))
+                self.result = process.run(cmd, shell=True, ignore_status=True,
+                                          sudo=True)
+            else:
+                test = self.subtest or 'vfio_iommufd_smoke_test'
+                test_bin = os.path.join(vfio_dir, test)
+                if not os.path.isfile(test_bin):
+                    self.fail("%s binary not found - build may have failed" % test)
+                os.chdir(vfio_dir)
+                self.result = process.run('./%s %s' % (test, self.pci_device),
+                                          shell=True, ignore_status=True,
+                                          sudo=True)
+                if self.result.exit_status != 0:
+                    self.fail("./%s failed (exit %d)" % (test,
+                                                         self.result.exit_status))
+        except (TestCancel, TestFail):
+            raise
+        except Exception:
+            self.cancel("Failed to setup and run vfio kselftests")
+
     def tearDown(self):
         if self._iommu_hp_restore:
             hp_path, prev_nr = self._iommu_hp_restore
@@ -479,6 +602,14 @@ class kselftest(Test):
                 self.log.info('Restored nr_hugepages to %d via %s',
                               prev_nr, hp_path)
             self._iommu_hp_restore = None
+        if (self.comp == 'vfio' and
+                not dmesg.check_kernel_logs("Interrupt remapping enabled")):
+            self._vfio_allow_unsafe_interrupts('N')
         self.log.info('Cleaning up')
+        if self.comp == 'vfio' and getattr(self, 'pci_device', None):
+            cleanup = os.path.join(self.sourcedir, 'vfio/scripts/cleanup.sh')
+            if os.path.isfile(cleanup):
+                process.run('bash %s %s' % (cleanup, self.pci_device),
+                            shell=True, sudo=True, ignore_status=True)
         if os.path.exists(self.workdir):
             shutil.rmtree(self.workdir)
