@@ -108,3 +108,69 @@ run_type: !mux
         type: 'upstream'
         location: "https://github.com/torvalds/linux/archive/master.zip"
 
+IOMMUFD Test Documentation :-
+
+  Runs the iommufd kernel selftests from tools/testing/selftests/iommu.
+
+  This test must run as root.
+
+  The test is cancelled early on AMD CPUs if kernel logs do not contain
+  "AMD-Vi" meaning iommu is disabled.
+
+  Running kernel must have the following enabled:
+  - CONFIG_IOMMUFD
+  - CONFIG_IOMMUFD_TEST
+  - CONFIG_VFIO_DEVICE_CDEV
+  - CONFIG_AMD_IOMMU_IOMMUFD (AMD platforms only)
+
+  Before running, the test reserves hugepages (default 512 pages of the
+  system default hugepage size) so hugetlb-related subtests can pass.
+
+kernel/kselftest.py.data/kselftest_iommu.yaml contains YAML parameters for
+iommufd. The following parameters apply under the iommu component:
+1. comp         -> Must be "iommu"
+2. subtest      -> Selftest binary to run (default: iommufd). Use "all" for
+                   make -C iommu run_tests, or "iommufd_fail_nth" for the
+                   fault-injection binary.
+3. nr_hugepages -> Number of hugepages to reserve (default: 512)
+4. type         -> Must be "upstream"
+5. location     -> URL of the kernel source archive or git repository
+6. kself_args   -> Extra arguments passed to make run_tests (when subtest is
+                   "all")
+
+Issues :-
+
+  Known issue (under debug): With mem_encrypt=on (AMD SME),
+  iommufd_viommu.mock_viommu.viommu_alloc_with_data fails.
+
+To run iommufd selftests with upstream code:
+
+component: !mux
+    iommufd:
+        comp: "iommu"
+run_type: !mux
+    upstream:
+        type: 'upstream'
+        location: "https://github.com/torvalds/linux/archive/master.zip"
+
+To run the full iommu selftest suite via make run_tests:
+
+component: !mux
+    iommu_all:
+        comp: "iommu"
+        subtest: "all"
+run_type: !mux
+    upstream:
+        type: 'upstream'
+        location: "https://github.com/torvalds/linux/archive/master.zip"
+
+To run iommufd with a custom hugepage count:
+
+component: !mux
+    iommufd:
+        comp: "iommu"
+        nr_hugepages: 512
+run_type: !mux
+    upstream:
+        type: 'upstream'
+        location: "https://github.com/torvalds/linux/archive/master.zip"

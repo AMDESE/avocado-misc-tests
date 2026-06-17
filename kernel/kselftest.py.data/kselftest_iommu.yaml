@@ -1,0 +1,11 @@
+component: !mux
+    iommufd:
+        comp: "iommu"
+    iommufd_fail_nth:
+        comp: "iommu"
+        subtest: "iommufd_fail_nth"
+run_type: !mux
+    upstream:
+        type: 'upstream'
+        location: 'https://github.com/torvalds/linux/archive/v7.1-rc1.zip'
+        kself_args: 'summary=1'

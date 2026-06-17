@@ -21,7 +21,8 @@ import shutil
 import pathlib
 
 from avocado import Test
-from avocado.utils import build, process
+from avocado.core.exceptions import TestCancel, TestFail
+from avocado.utils import build, cpu, dmesg, memory, process
 from avocado.utils import distro, linux_modules
 from avocado.utils import archive, git
 from avocado.utils.software_manager.manager import SoftwareManager
@@ -82,6 +83,7 @@ class kselftest(Test):
         """
         smg = SoftwareManager()
         self.comp = self.params.get('comp', default='')
+        self._iommu_hp_restore = None
         self.subtest = self.params.get('subtest', default='')
         self.subcomp_test = self.params.get('subcomp_test', default='')
         if self.comp == "mm" and self.subtest == "ksm_tests":
@@ -267,6 +269,8 @@ class kselftest(Test):
             self.cpufreq()
         if self.comp == "amd-pstate":
             self.amd_pstate()
+        if self.comp == "iommu":
+            self.iommu()
         else:
             if self.subtest == "ksm_tests":
                 self.ksmtest()
@@ -391,7 +395,90 @@ class kselftest(Test):
         test_run = "./run_kselftest.sh -t " + self.subcomp_test
         self.run_cmd(test_run)
 
+    def iommu(self):
+        """
+        Execute the kernel iommufd selftests.
+        """
+        try:
+            if IS_AMD:
+                if not dmesg.check_kernel_logs("AMD-Vi"):
+                    self.cancel("IOMMU is disabled.")
+
+            if not linux_modules.configure_module("iommufd", "CONFIG_IOMMUFD"):
+                self.cancel("iommufd module cannot be configured (CONFIG_IOMMUFD)")
+
+            for config in ("CONFIG_IOMMUFD_TEST", "CONFIG_VFIO_DEVICE_CDEV"):
+                if linux_modules.check_kernel_config(config) == \
+                        linux_modules.ModuleConfig.NOT_SET:
+                    self.cancel("%s is not enabled in the running kernel" % config)
+
+            if IS_AMD:
+                if linux_modules.check_kernel_config("CONFIG_AMD_IOMMU_IOMMUFD") == \
+                        linux_modules.ModuleConfig.NOT_SET:
+                    self.cancel("CONFIG_AMD_IOMMU_IOMMUFD is not enabled "
+                                "in the running kernel")
+
+            if not os.path.exists('/dev/iommu'):
+                self.cancel("/dev/iommu not available after CONFIG_IOMMUFD setup")
+
+            iommu_dir = os.path.join(self.sourcedir, 'iommu')
+            if not os.path.isdir(iommu_dir):
+                self.cancel("iommu selftest directory not found at %s" % iommu_dir)
+
+            nr_hugepages = int(self.params.get('nr_hugepages', default=512))
+            hp_path = '/sys/kernel/mm/hugepages/hugepages-%skB/nr_hugepages' % (
+                memory.get_huge_page_size())
+            if os.path.isfile(hp_path):
+                try:
+                    with open(hp_path, 'r') as hp_file:
+                        prev_nr = int(hp_file.read().strip())
+                except (OSError, ValueError) as err:
+                    self.log.warn('Could not read prior nr_hugepages from %s: %s',
+                                  hp_path, err)
+                    prev_nr = None
+                process.run('echo %d > %s' % (nr_hugepages, hp_path),
+                            shell=True, sudo=True)
+                if prev_nr is not None:
+                    self._iommu_hp_restore = (hp_path, prev_nr)
+                self.log.info('Reserved %d hugepages via %s', nr_hugepages, hp_path)
+            else:
+                self.log.warn('%s not found; hugetlb iommufd tests may fail',
+                              hp_path)
+
+            os.chdir(self.sourcedir)
+            kself_args = self.params.get("kself_args", default='')
+            if self.subtest == 'all':
+                cmd = 'make %s -C iommu run_tests' % kself_args
+                self.result = process.run(cmd, shell=True, ignore_status=True,
+                                          sudo=True)
+            else:
+                test = self.subtest or 'iommufd'
+                test_bin = os.path.join(iommu_dir, test)
+                if not os.path.isfile(test_bin):
+                    self.fail("%s binary not found - build may have failed" % test)
+                os.chdir(iommu_dir)
+                self.result = process.run('./%s' % test, shell=True,
+                                          ignore_status=True, sudo=True)
+                if self.result.exit_status != 0:
+                    self.fail("./%s failed (exit %d)" % (test,
+                                                         self.result.exit_status))
+        except (TestCancel, TestFail):
+            raise
+        except Exception:
+            self.cancel("Failed to setup and run iommufd kselftests")
+
     def tearDown(self):
+        if self._iommu_hp_restore:
+            hp_path, prev_nr = self._iommu_hp_restore
+            res = process.run('echo %d > %s' % (prev_nr, hp_path),
+                              shell=True, sudo=True, ignore_status=True)
+            if res.exit_status != 0:
+                self.log.warn('Could not restore nr_hugepages to %d at %s',
+                              prev_nr, hp_path)
+            else:
+                self.log.info('Restored nr_hugepages to %d via %s',
+                              prev_nr, hp_path)
+            self._iommu_hp_restore = None
         self.log.info('Cleaning up')
         if os.path.exists(self.workdir):
             shutil.rmtree(self.workdir)
