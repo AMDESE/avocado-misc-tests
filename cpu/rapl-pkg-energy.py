@@ -101,9 +101,31 @@ class rapl(Test):
         fd.close()
         return int(lines[0].strip())
 
+    def get_rapl_pkg_energy_cpus(self):
+        cpumask_path = "/sys/bus/event_source/devices/power/cpumask"
+        with open(cpumask_path, 'r') as fd:
+            raw = fd.read().strip()
+        self.log.info(f"power cpumask: {raw}")
+        cpus = set()
+        for part in raw.split(','):
+            if '-' in part:
+                start, end = part.split('-', 1)
+                cpus.update(range(int(start), int(end) + 1))
+            else:
+                cpus.add(int(part))
+        return cpus
+
+    def compute_rapl_pkg_energy_cpu_map(self):
+        self.rapl_pkg_energy_cpu = {}
+        cpumask_cpus = self.get_rapl_pkg_energy_cpus()
+        for c in cpumask_cpus:
+            package_id = self.read_topology_attr(c, 'physical_package_id')
+            self.rapl_pkg_energy_cpu[package_id] = c
+            self.log.info(f"RAPL pkg-energy representative for Package {package_id}: CPU {c}")
+
     def compute_package_die_group_map(self):
         self.package_die_group_map = {}
-        self.rapl_pkg_energy_cpu = {}
+        self.compute_rapl_pkg_energy_cpu_map()
         covered_package_dies = []
 
         num_cpus = int(process.system_output("nproc"))
@@ -111,7 +133,6 @@ class rapl(Test):
             package_id = self.read_topology_attr(i, 'physical_package_id')
             if package_id not in self.package_die_group_map.keys():
                 self.package_die_group_map[package_id] = {} #This will be a dictionary where the keys will be die-group-ids
-                self.rapl_pkg_energy_cpu[package_id] = i #This will the representative for this package. RAPL energy MSR will be read here.
 
             die_id = self.read_topology_attr(i, 'die_id')
             die_group_id = (die_id & self.dg_mask) >> self.dg_shift #Note: We will group all CPUs belonging to the same die-group
@@ -157,12 +178,12 @@ class rapl(Test):
     # Validates that the current energy of the package@pkg_id is greater than lower_limit.
     # Returns (success, current_energy) where status {True, False} depending on whether the validation is successful or not.
     def validate_pkg_energy(self, pkg_id, die_group_id, lower_limit):
-        cpu = self.rapl_pkg_energy_cpu[pkg_id] # self.get_rapl_pkg_energy_cpu(pkg_id)
+        cpu = self.rapl_pkg_energy_cpu[pkg_id]
         # Retry 10 times to ensure we dont get a false negative
         for i in range(10):
             energy = self.get_energy_consumed(cpu)
             self.log.info(f"Energy after loading Package {pkg_id}, Die-Group {die_group_id} is {energy}")
-            if energy > lower_limit:
+            if energy is not None and energy > lower_limit:
                 return (True, energy)
 
         return (False, energy)
@@ -178,8 +199,13 @@ class rapl(Test):
     # Loads the package one die at a time and validates if the package energy monotonically increases.
     # Returns True on success, False on failure.
     def load_and_test(self, pkg_id):
-        prev_energy = self.get_energy_consumed(pkg_id) #This is the energy when the package is idle
+        cpu = self.rapl_pkg_energy_cpu[pkg_id]
+        prev_energy = self.get_energy_consumed(cpu)
         self.log.info(f"Energy before loading Package {pkg_id} is {prev_energy}")
+
+        if prev_energy is None:
+            self.fail(f"Failed to read initial energy for Package {pkg_id} "
+                      f"(CPU {cpu})")
 
         die_group_map =  self.package_die_group_map[pkg_id]
         for die_group_id in die_group_map.keys():
