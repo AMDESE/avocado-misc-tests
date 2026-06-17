@@ -22,7 +22,7 @@ import platform
 import time
 from avocado import Test
 from avocado import skipIf
-from avocado.utils import process, distro, cpu
+from avocado.utils import process, distro, cpu, linux_modules
 from functools import reduce
 import sys
 import re
@@ -30,9 +30,13 @@ import re
 class rapl_core(Test):
     @skipIf(cpu.get_vendor() != "amd", "This test is only supported for AMD platforms")
     def setUp(self):
+        if not linux_modules.module_is_loaded('rapl'):
+            if not linux_modules.load_module('rapl'):
+                self.cancel("The system is not loaded with RAPL module. Unable to load it.")
         path = "/sys/devices/power_core"
-        if not os.path.isdir(path):
-            self.cancel("RAPL module not found. Retry with \"modprobe rapl\"")
+        if not os.path.exists(path):
+            self.cancel("RAPL power_core PMU not found. Per-core energy counter support was "\
+                        "introduced in upstream kernel 6.14.")
         energy_path = "/sys/devices/power_core/events/energy-core"
         if not os.path.exists(energy_path):
             self.cancel("RAPL energy-core event not found. Retry after enabling the core-energy feature from BIOS")

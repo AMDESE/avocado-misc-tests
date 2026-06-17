@@ -23,7 +23,7 @@ import platform
 import time
 from avocado import Test
 from avocado import skipIf
-from avocado.utils import process, distro, cpu
+from avocado.utils import process, distro, cpu, linux_modules
 from functools import reduce
 import sys
 import re
@@ -80,9 +80,9 @@ class rapl(Test):
         return (mask, shift)
 
     def setUp(self):
-        path = "/sys/devices/power"
-        if not os.path.isdir(path):
-            self.cancel("RAPL module not found. Retry with \"modprobe rapl\"")
+        if not linux_modules.module_is_loaded('rapl'):
+            if not linux_modules.load_module('rapl'):
+                self.cancel("The system is not loaded with RAPL module. Unable to load it.")
         energy_path = "/sys/devices/power/events/energy-pkg"
         if not os.path.exists(energy_path):
             self.cancel("RAPL energy-pkg event not found. Retry after enabling the package-energy feature from BIOS")
