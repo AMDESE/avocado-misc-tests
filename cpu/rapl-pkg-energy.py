@@ -117,8 +117,14 @@ class rapl(Test):
 
     def compute_rapl_pkg_energy_cpu_map(self):
         self.rapl_pkg_energy_cpu = {}
+        self.online_cpus = set(cpu.online_list())
         cpumask_cpus = self.get_rapl_pkg_energy_cpus()
-        for c in cpumask_cpus:
+        self.log.info(f"Online CPUs: {sorted(self.online_cpus)}")
+        self.log.info(f"CPUs in power cpumask: {sorted(cpumask_cpus)}")
+        for c in sorted(cpumask_cpus):
+            if c not in self.online_cpus:
+                self.log.info(f"Skipping CPU {c} from cpumask (offline)")
+                continue
             package_id = self.read_topology_attr(c, 'physical_package_id')
             self.rapl_pkg_energy_cpu[package_id] = c
             self.log.info(f"RAPL pkg-energy representative for Package {package_id}: CPU {c}")
@@ -128,8 +134,7 @@ class rapl(Test):
         self.compute_rapl_pkg_energy_cpu_map()
         covered_package_dies = []
 
-        num_cpus = int(process.system_output("nproc"))
-        for i in range(num_cpus):
+        for i in sorted(self.online_cpus):
             package_id = self.read_topology_attr(i, 'physical_package_id')
             if package_id not in self.package_die_group_map.keys():
                 self.package_die_group_map[package_id] = {} #This will be a dictionary where the keys will be die-group-ids

@@ -149,11 +149,11 @@ class pmqos_cpu_latency(Test):
         self.cancel(f"The target CPU is busy for {max_retries} iterations. Retry after ensuring that there is no load on the system")
 
     def test(self):
-        num_cpus = int(process.system_output("nproc"))
-        cpu = random.choice(range(num_cpus))
-        self.cpu = cpu
-        self.log.info(f"Targetting CPU {cpu}")
-        cpu_str = f"cpu{cpu}"
+        online_cpus = cpu.online_list()
+        target_cpu = random.choice(online_cpus)
+        self.cpu = target_cpu
+        self.log.info(f"Targetting CPU {target_cpu}")
+        cpu_str = f"cpu{target_cpu}"
 
         self.compute_cstate_paths(cpu_str)
         self.capture_state_latencies()

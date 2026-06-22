@@ -70,13 +70,14 @@ class rapl_core(Test):
 
     def compute_package_cpu_map(self):
         self.package_cpu_map = {}
+        online_cpus = set(cpu.online_list())
         supported_cpus = self.get_supported_cpus()
-        self.log.info(f"CPUs supported by power_core cpumask: {sorted(supported_cpus)}")
+        usable_cpus = online_cpus & supported_cpus
+        self.log.info(f"Online CPUs: {sorted(online_cpus)}")
+        self.log.info(f"CPUs in power_core cpumask: {sorted(supported_cpus)}")
+        self.log.info(f"Usable CPUs (online & in cpumask): {sorted(usable_cpus)}")
 
-        num_cpus = int(process.system_output("nproc"))
-        for i in range(num_cpus):
-            if i not in supported_cpus:
-                continue
+        for i in sorted(usable_cpus):
             package_id = self.read_topology_attr(i, 'physical_package_id')
             self.log.info(f"CPU {i} physical_package_id = {package_id}")
             if package_id not in self.package_cpu_map.keys():

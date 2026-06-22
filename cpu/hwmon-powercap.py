@@ -111,8 +111,7 @@ class hwmon_powercap(Test):
         self.rapl_pkg_energy_cpu = {}
         covered_package_cores = []
 
-        num_cpus = int(process.system_output("nproc"))
-        for i in range(num_cpus):
+        for i in cpu.online_list():
             package_id = self.read_topology_attr(i, 'physical_package_id')
             if package_id not in self.package_cpus_map.keys():
                 self.package_cpus_map[package_id] = [] #This will be a list of all the primary threads of this package

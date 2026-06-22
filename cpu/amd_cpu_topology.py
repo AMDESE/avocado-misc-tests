@@ -42,7 +42,7 @@ class CpuTopology(Test):
             self.cancel("%s is needed for the test to be run" % package)
 
         flag = 1
-        for i in range(0, os.cpu_count()):
+        for i in cpu.online_list():
             die_id = int(
                 process.run(
                     f"cat /sys/devices/system/cpu/cpu{i}/topology/die_id", shell=True
