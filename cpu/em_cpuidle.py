@@ -46,11 +46,12 @@ class cpuidle(Test):
                     % platform.uname()[2]]
         else:
             deps = ['kernel-tools']
+        for package in deps:
+            if not smm.check_installed(package) and not smm.install(package):
+                self.cancel('%s is needed for the test to be run' % package)
         ret = os.system("cpupower --version")
         if ret != 0:
-            for package in deps:
-                if not smm.check_installed(package) and not smm.install(package):
-                    self.cancel('%s is needed for the test to be run' % package)
+            self.cancel('cpupower not found, it is needed for the test to be run')
 
     """
     Checks if the list of strings @le matches with the list of strings
