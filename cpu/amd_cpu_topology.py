@@ -38,7 +38,7 @@ class CpuTopology(Test):
     def setUp(self):
         smm = SoftwareManager()
         package = "cpuid"
-        if not smm.check_installed(package) and not smm.install(package):
+        if not shutil.which(package) and not smm.check_installed(package) and not smm.install(package):
             self.cancel("%s is needed for the test to be run" % package)
 
         flag = 1
