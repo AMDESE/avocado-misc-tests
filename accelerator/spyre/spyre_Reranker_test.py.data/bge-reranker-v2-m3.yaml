@@ -1,15 +1,15 @@
-# Avocado Test Parameters for EE Container Tests - Granite-4.1-8b-fp8
+# Avocado Test Parameters for Reranker Container Tests 
 
-# EE  Version Configuration
+# spyre version
 RHAIIS_VERSION: ""
 
 # Environment Variables
-AIU_PCIE_IDS: "0381:50:00.0"
+AIU_PCIE_IDS: "0233:70:00.0"
 HOST_MODELS_DIR: "/opt/ibm/spyre/models/src"
-VLLM_MODEL_PATH: "/models/granite-4.1-8b-fp8"
+VLLM_MODEL_PATH: "/models/bge-reranker-v2-m3"
 AIU_WORLD_SIZE: "1"
-MAX_MODEL_LEN: "3072"
-MAX_BATCH_SIZE: "16"
+PROMPT_LENS: "512"
+BATCH_SIZES: "4"
 
 # Container Configuration
 CONTAINER_URL: ""
@@ -20,10 +20,9 @@ USERNS: "keep-id"
 GROUP_ADD: "keep-groups"
 SECURITY_OPT: "label=disable"
 PIDS_LIMIT: "0"
-MEMORY: "100G"
-SHM_SIZE: "64M"
+MEMORY: "50G"
 PORT_MAPPING: "127.0.0.1:8000:8000"
 
-# User Configuration
+# User Configuration, keep empty if you want to run as root
 USER: ""
-HF_MODEL_NAME: "ibm-granite/granite-4.1-8b-fp8"
+HF_MODEL_NAME: "BAAI/bge-reranker-v2-m3"

@@ -24,9 +24,9 @@ from avocado.utils.podman import (Podman, PodmanException,
 from avocado.utils.software_manager.manager import SoftwareManager
 
 
-class SpyreRAGTest(Test):
+class SpyreEmbeddingTest(Test):
     """
-    Test RAG (Retrieval-Augmented Generation) container deployments
+    Test Embedding container deployments
     with different models on Spyre AIU devices.
     """
 
@@ -100,8 +100,8 @@ class SpyreRAGTest(Test):
         self.host_models_dir = self.params.get("HOST_MODELS_DIR", default="")
         self.vllm_model_path = self.params.get("VLLM_MODEL_PATH", default="")
         self.aiu_world_size = self.params.get("AIU_WORLD_SIZE", default="")
-        self.max_model_len = self.params.get("MAX_MODEL_LEN", default="")
-        self.max_batch_size = self.params.get("MAX_BATCH_SIZE", default="")
+        self.prompt_lens = self.params.get("PROMPT_LENS", default="")
+        self.batch_sizes = self.params.get("BATCH_SIZES", default="")
         self.memory = self.params.get("MEMORY", default="")
         self.shm_size = self.params.get("SHM_SIZE", default="")
         self.container_url = self.params.get("CONTAINER_URL", default=None)
@@ -119,7 +119,7 @@ class SpyreRAGTest(Test):
         self.hf_model_name = self.params.get("HF_MODEL_NAME", default="")
 
         if self.aiu_ids:
-            self.aiu_ids = self.aiu_ids.split()
+            self.aiu_ids = self.aiu_ids.split()[0]
         else:
             self.cancel("Missing required parameters: AIU_PCIE_IDS")
 
@@ -128,6 +128,7 @@ class SpyreRAGTest(Test):
             "CONTAINER_URL": self.container_url,
             "CONTAINER_TAG": self.container_tag,
             "MEMORY": self.memory,
+            "SHM_SIZE": self.shm_size,
             "GROUP_ADD": self.group_add,
             "API_KEY": self.api_key,
         }
@@ -250,11 +251,21 @@ class SpyreRAGTest(Test):
             except Exception as ex:
                 self.log.warning("Failed to pull container image: %s", ex)
 
-    def test_rag_container(self):
+    def test_embedding_container(self):
         """
-        Test RAG container deployment with the configured model.
+        Test embedding model container deployment on IBM Spyre AIU hardware.
+
+        This test validates:
+            1. Container creation with Spyre AIU device access
+            2. Wait for vLLM startup and initialization
+            3. Validates model availability
+            4. API endpoint availability
+            5. verifies container health and API endpoint availability
+        Raises:
+            TestFail: If model not found, container creation fails, VLLM startup times out,
+                     or container enters non-running state.
         """
-        self.log.info("=== Starting RAG Container Test ===")
+        self.log.info("=== Starting Embedding Container Test ===")
         model_name = os.path.basename(self.vllm_model_path)
         model_dir = os.path.join(self.host_models_dir, model_name)
         if not os.path.exists(model_dir):
@@ -267,7 +278,7 @@ class SpyreRAGTest(Test):
 
         self.log.info("  Sample files: %s", ', '.join(model_files[:5]))
 
-        container_name = f"spyre-rag-test-{self.rhaiis_version.replace('.', '-')}"
+        container_name = f"spyre-embedding-test-{self.rhaiis_version.replace('.', '-')}"
         self.log.info("Cleaning up any existing container: %s", container_name)
         self.run_cmd(f"podman rm -f {container_name} 2>/dev/null || true")
 
@@ -278,9 +289,16 @@ class SpyreRAGTest(Test):
             "-v", f"{self.host_models_dir}:/models",
             "-e", f"AIU_PCIE_IDS={self.aiu_ids}",
         ]
+
         # Add RHAIIS 3.4 specific environment variable
         if self.rhaiis_version == "3.4":
-            podman_options.extend(["-e", "VLLM_SPYRE_USE_CB=1"])
+            podman_options.extend(["-e", f"VLLM_SPYRE_WARMUP_BATCH_SIZES={self.batch_sizes}"])
+            podman_options.extend(["-e", f"VLLM_SPYRE_WARMUP_PROMPT_LENS={self.prompt_lens}"])
+            podman_options.extend(["-e", "VLLM_SPYRE_USE_CHUNKED_PREFILL=0"])
+        else:
+            podman_options.extend(["-e", f"SENDNN_INFERENCE_WARMUP_BATCH_SIZES={self.batch_sizes}"])
+            podman_options.extend(["-e", f"SENDNN_INFERENCE_WARMUP_PROMPT_LENS={self.prompt_lens}"])
+
         # Continue with podman options in exact order
         podman_options.extend([
             f"--userns={self.userns}",
@@ -295,14 +313,8 @@ class SpyreRAGTest(Test):
         podman_options.extend([
             "--model", self.vllm_model_path,
             "-tp", str(self.aiu_world_size),
-            f"--max-model-len={self.max_model_len}",
-            f"--max-num-seqs={self.max_batch_size}",
         ])
-        # Add version-specific VLLM argument for 3.4
-        if self.rhaiis_version == "3.4":
-            podman_options.append("--enable-prefix-caching")
-
-        self.log.info("=== RAG Container Test Configuration ===")
+        self.log.info("=== Embedding Container Test Configuration ===")
         self.log.info("RHAIIS Version: %s", self.rhaiis_version)
         self.log.info("Model Path: %s", self.vllm_model_path)
         self.log.info("HuggingFace Model: %s", self.hf_model_name)
@@ -350,8 +362,8 @@ class SpyreRAGTest(Test):
         ):
             self.log.error("VLLM failed to start within timeout")
             log_file = self.podman.save_container_logs(
-                container_id, self.workdir, test_name=container_name,
-                user=self.user)
+                 container_id, self.workdir, test_name=container_name,
+                 user=self.user)
             if log_file:
                 self.log.info("Container logs saved to: %s", log_file)
             self.fail("VLLM startup failed")
@@ -386,7 +398,7 @@ class SpyreRAGTest(Test):
         if log_file:
             self.log.info("Container logs saved to: %s", log_file)
 
-        self.log.info("=== RAG Container Test Completed Successfully ===")
+        self.log.info("=== EE Container Test Completed Successfully ===")
 
     def tearDown(self):
         """Clean up: stop and remove container if it exists."""
