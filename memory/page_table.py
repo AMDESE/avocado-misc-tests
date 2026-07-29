@@ -72,7 +72,9 @@ class PageTable(Test):
                 default="https://github.com/sanskriti-s/pg-table_tests.git")
         git.get_repo(self.url_pg_table, destination_dir=self.teststmpdir)
         os.chdir(self.teststmpdir)
-        build.make(self.teststmpdir)
+        # GCC >= 14 defaults to -std=gnu23, under which this repo's
+        # old-style K&R declarations fail to build.
+        build.make(self.teststmpdir, extra_args='CFLAGS=-std=gnu17')
 
     def test_CPUID(self):
         self.log.info(" -- Check 5-level CPUID feature --")
