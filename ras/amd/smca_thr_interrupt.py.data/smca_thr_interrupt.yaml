@@ -1,0 +1,25 @@
+# Test data for smca_thr_interrupt.py
+#
+# Validates commit 4efaec6e16c2 ("x86/mce/amd: Support SMCA Corrected Error
+# Interrupt"): the kernel sets MCA_CONFIG[IntEn] for every bank advertising
+# MCA_CONFIG[IntPresent], and installs the threshold interrupt vector in the
+# APIC LVT.
+#
+# Bit positions are parameterized so the test does not hardcode them:
+#   int_present_bit - MCA_CONFIG[IntPresent], bit 10  (low BIT(10))
+#   int_en_bit      - MCA_CONFIG[IntEn],      bit 40  (high BIT(8))
+# See smca_configure() in arch/x86/kernel/cpu/mce/amd.c.
+#
+# threshold_vector - THRESHOLD_APIC_VECTOR from arch/x86/include/asm/
+# irq_vectors.h (0xf9). Used to match the boot message emitted by
+# reserve_eilvt_offset(): "LVT offset <N> assigned for vector 0xf9".
+#
+# max_cpus - how many MCE-capable CPUs to sample for the per-CPU/per-bank MSR
+# sweep. A full sweep is one MSR read per bank per CPU, which is tens of
+# thousands of reads on a 1000+ CPU system. Set to 0 to check every CPU.
+# Sampling is always reported in the test log, never silent.
+
+int_present_bit: 10
+int_en_bit: 40
+threshold_vector: 0xF9
+max_cpus: 8
