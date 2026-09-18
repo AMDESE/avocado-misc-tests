@@ -1,0 +1,259 @@
+# Test data for smca_bank_types.py
+#
+# One mux variant per SMCA bank type, so the per-bank test methods
+# (test_sysfs_name, test_decode) run individually for each bank type - each
+# reports its own PASS/FAIL/CANCEL. Mirrors the kernel SMCA tables:
+#   smca_hwid_mcatypes[]  -> hwid, mcatype   (arch/x86/kernel/cpu/mce/amd.c)
+#   smca_names[]          -> sysfs (short) name
+#   smca_long_names[]     -> longname (decoder, drivers/edac/mce_amd.c)
+#
+# longname is null where the kernel provides no decode long name (ma_llc,
+# usr_cp, usr_dp) or the type is special (reserved); test_decode CANCELs those.
+# Node names are unique labels shown in each variant's test id (e.g. ...;cs_v2).
+#
+# 'status' (outside the mux, applies to every variant) is the MCi_STATUS value
+# used for the software (decode-only) injection; the injector sets the VAL bit
+# automatically. It stays a corrected (non-UC) error - "Corrected error, no
+# action required." - but sets a non-zero XEC (bit 16 => xec=1). The non-zero
+# XEC is required so UMC banks skip decode_smca_error()'s DRAM-ECC path
+# (decode_dram_ecc/amd64_edac), which WARNs on a synthetic error with no real
+# DIMM/address. Non-zero xec is harmless for all other bank types.
+
+status: 0x10000
+
+bank: !mux
+    cs:
+        hwid: 0x2E
+        mcatype: 0x0
+        sysfs: coherent_station
+        longname: "Coherent Station"
+    cs_v2:
+        hwid: 0x2E
+        mcatype: 0x2
+        sysfs: coherent_station
+        longname: "Coherent Station"
+    dacc_be:
+        hwid: 0x164
+        mcatype: 0x0
+        sysfs: dacc_be
+        longname: "DACC Back-end Unit"
+    dacc_fe:
+        hwid: 0x157
+        mcatype: 0x0
+        sysfs: dacc_fe
+        longname: "DACC Front-end Unit"
+    decode_unit:
+        hwid: 0xB0
+        mcatype: 0x3
+        sysfs: decode_unit
+        longname: "Decode Unit"
+    eddr5_cmn:
+        hwid: 0x1E0
+        mcatype: 0x0
+        sysfs: eddr5_cmn
+        longname: "eDDR5 CMN Unit"
+    execution_unit:
+        hwid: 0xB0
+        mcatype: 0x5
+        sysfs: execution_unit
+        longname: "Execution Unit"
+    floating_point:
+        hwid: 0xB0
+        mcatype: 0x6
+        sysfs: floating_point
+        longname: "Floating Point Unit"
+    gmi_pcs:
+        hwid: 0x241
+        mcatype: 0x0
+        sysfs: gmi_pcs
+        longname: "Global Memory Interconnect PCS Unit"
+    gmi_phy:
+        hwid: 0x269
+        mcatype: 0x0
+        sysfs: gmi_phy
+        longname: "Global Memory Interconnect PHY Unit"
+    insn_fetch:
+        hwid: 0xB0
+        mcatype: 0x1
+        sysfs: insn_fetch
+        longname: "Instruction Fetch Unit"
+    l2_cache:
+        hwid: 0xB0
+        mcatype: 0x2
+        sysfs: l2_cache
+        longname: "L2 Cache"
+    l3_cache:
+        hwid: 0xB0
+        mcatype: 0x7
+        sysfs: l3_cache
+        longname: "L3 Cache"
+    load_store:
+        hwid: 0xB0
+        mcatype: 0x0
+        sysfs: load_store
+        longname: "Load Store Unit"
+    load_store_v2:
+        hwid: 0xB0
+        mcatype: 0x10
+        sysfs: load_store
+        longname: "Load Store Unit"
+    ma_llc:
+        hwid: 0x2E
+        mcatype: 0x4
+        sysfs: ma_llc
+        longname: null
+    mp5:
+        hwid: 0x01
+        mcatype: 0x2
+        sysfs: mp5
+        longname: "Microprocessor 5 Unit"
+    mpart:
+        hwid: 0xFF
+        mcatype: 0x2
+        sysfs: mpart
+        longname: "MPART Unit"
+    mpasp:
+        hwid: 0xFD
+        mcatype: 0x0
+        sysfs: mpasp
+        longname: "MPASP Unit"
+    mpasp_v2:
+        hwid: 0xFD
+        mcatype: 0x1
+        sysfs: mpasp
+        longname: "MPASP Unit"
+    mpdacc:
+        hwid: 0xBE
+        mcatype: 0x0
+        sysfs: mpdacc
+        longname: "MPDACC Unit"
+    mpdma:
+        hwid: 0x01
+        mcatype: 0x3
+        sysfs: mpdma
+        longname: "MPDMA Unit"
+    mpm:
+        hwid: 0xF9
+        mcatype: 0x0
+        sysfs: mpm
+        longname: "MPM Unit"
+    mpras:
+        hwid: 0x12
+        mcatype: 0x0
+        sysfs: mpras
+        longname: "MPRAS Unit"
+    nbif:
+        hwid: 0x6C
+        mcatype: 0x0
+        sysfs: nbif
+        longname: "NBIF Unit"
+    nbio:
+        hwid: 0x18
+        mcatype: 0x0
+        sysfs: nbio
+        longname: "Northbridge IO Unit"
+    param_block:
+        hwid: 0x05
+        mcatype: 0x0
+        sysfs: param_block
+        longname: "Parameter Block"
+    pcie:
+        hwid: 0x46
+        mcatype: 0x0
+        sysfs: pcie
+        longname: "PCI Express Unit"
+    pcie_v2:
+        hwid: 0x46
+        mcatype: 0x1
+        sysfs: pcie
+        longname: "PCI Express Unit"
+    pcie_pl:
+        hwid: 0x1E1
+        mcatype: 0x0
+        sysfs: pcie_pl
+        longname: "PCIe Link Unit"
+    pie:
+        hwid: 0x2E
+        mcatype: 0x1
+        sysfs: pie
+        longname: "Power, Interrupts, etc."
+    psp:
+        hwid: 0xFF
+        mcatype: 0x0
+        sysfs: psp
+        longname: "Platform Security Processor"
+    psp_v2:
+        hwid: 0xFF
+        mcatype: 0x1
+        sysfs: psp
+        longname: "Platform Security Processor"
+    reserved:
+        hwid: 0x00
+        mcatype: 0x0
+        sysfs: reserved
+        longname: null
+    sata:
+        hwid: 0xA8
+        mcatype: 0x0
+        sysfs: sata
+        longname: "SATA Unit"
+    shub:
+        hwid: 0x80
+        mcatype: 0x0
+        sysfs: shub
+        longname: "System Hub Unit"
+    smu:
+        hwid: 0x01
+        mcatype: 0x0
+        sysfs: smu
+        longname: "System Management Unit"
+    smu_v2:
+        hwid: 0x01
+        mcatype: 0x1
+        sysfs: smu
+        longname: "System Management Unit"
+    ssbdci:
+        hwid: 0x5C
+        mcatype: 0x0
+        sysfs: ssbdci
+        longname: "Die to Die Interconnect Unit"
+    umc:
+        hwid: 0x96
+        mcatype: 0x0
+        sysfs: umc
+        longname: "Unified Memory Controller"
+    umc_v2:
+        hwid: 0x96
+        mcatype: 0x1
+        sysfs: umc_v2
+        longname: "Unified Memory Controller v2"
+    usb:
+        hwid: 0xAA
+        mcatype: 0x0
+        sysfs: usb
+        longname: "USB Unit"
+    usr_cp:
+        hwid: 0x180
+        mcatype: 0x0
+        sysfs: usr_cp
+        longname: null
+    usr_dp:
+        hwid: 0x170
+        mcatype: 0x0
+        sysfs: usr_dp
+        longname: null
+    wafl_phy:
+        hwid: 0x267
+        mcatype: 0x0
+        sysfs: wafl_phy
+        longname: "WAFL PHY Unit"
+    xgmi_pcs:
+        hwid: 0x50
+        mcatype: 0x0
+        sysfs: xgmi_pcs
+        longname: "Ext Global Memory Interconnect PCS Unit"
+    xgmi_phy:
+        hwid: 0x259
+        mcatype: 0x0
+        sysfs: xgmi_phy
+        longname: "Ext Global Memory Interconnect PHY Unit"
