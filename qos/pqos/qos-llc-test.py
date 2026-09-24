@@ -17,6 +17,10 @@ from avocado import Test
 from lib.qos_common import *
 from lib.qos_resctrllib import ResctrlSchemata
 
+def _l3ca_clos0_mask_ff(stdout):
+    """Match pqos L3CA CLOS/COS0 mask lines (legacy and Core Complex* formats)."""
+    return bool(re.search(r"L3CA\s+CLO?S0\s*=>\s+MASK\s+0xff", stdout, re.I))
+
 class Pqos(Test):
 
     def setUp(self):
@@ -66,13 +70,13 @@ class Pqos(Test):
         os.environ['LD_LIBRARY_PATH'] = '/usr/local/lib'
         (exitstatus, stdout, _) = CommonLib.Run(["pqos -e llc:0=0xff;"])
         assert exitstatus == 0
-        assert "L3CA COS0 => MASK 0xff" in stdout
+        assert _l3ca_clos0_mask_ff(stdout)
         self.log.info(stdout)
         assert "Allocation configuration altered" in stdout
 
         (exitstatus, stdout, _) = CommonLib.Run(["pqos -s"])
         assert exitstatus == 0
-        assert "L3CA COS0 => MASK 0xff" in stdout
+        assert _l3ca_clos0_mask_ff(stdout)
 
     ## PQOS - L3 CAT verify allocation using memtester
     #
