@@ -93,6 +93,6 @@ The following tests are covered as part of PQOS.
                  -rw-r--r-- 1 amd amd 0 Mar  7 04:27 /var/lock/libpqos
                # rm /var/lock/libpqos
 3. Expected Failure:
-   In cache allocation tests (particularly test_pqos_mbm_monitor), reported total memory bandwidth may intermittently not align with the memory
-   bandwidth limit set during the test, causing the test to fail. This is under investigation.
+   In cache allocation tests (particularly test_pqos_mbm_monitor or test_pqos_llc_monitor), reported total memory bandwidth or cache occupancy
+   may intermittently not align with the limit set during the test, causing the test to fail. This is an expected failure.
 #EOF
