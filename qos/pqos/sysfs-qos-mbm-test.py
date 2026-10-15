@@ -99,9 +99,10 @@ class Resctrl(Test):
         fpointer = open(log_file, "r")
         match = False
         for i in fpointer.readlines():
-            line = re.findall(r'[7|8]\d{3}', i)
-            if line:
-                logging.info("Match found: %s", line)
+            # MB:0=64 caps the group at 64 * 1/8 GB/s: expect 7000-8999 MB/s
+            bw = re.search(r'bandwidth\s+(-?\d*\.?\d+)', i)
+            if bw and 7000 <= float(bw.group(1)) < 9000:
+                logging.info("Match found: %s MB/s", bw.group(1))
                 match = True
                 break
             else:
