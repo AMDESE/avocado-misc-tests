@@ -19,7 +19,7 @@ from lib.qos_resctrllib import ResctrlSchemata
 
 def _l3ca_clos0_mask_ff(stdout):
     """Match pqos L3CA CLOS/COS0 mask lines (legacy and Core Complex* formats)."""
-    return bool(re.search(r"L3CA\s+CLO?S0\s*=>\s+MASK\s+0xff", stdout, re.I))
+    return bool(re.search(r"L3CA\s+CL?OS0\s*=>\s+MASK\s+0xff", stdout, re.I))
 
 class Pqos(Test):
 
