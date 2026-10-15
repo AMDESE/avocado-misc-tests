@@ -80,7 +80,14 @@ class Resctrl(Test):
     def test_pqos_mbm_monitor(self):
         log_file = os.path.join(self.outputdir,"sysfs-qos-mbm.log")
         logging.info("Execute memtester")
-        run_memtest = subprocess.Popen("taskset -c 0 memtester 100M 5 > /dev/tmp", shell=True)
+        # The buffer must not fit in L3 (128 MB per CCX on Venice), or
+        # memtester mostly hits the cache and never reaches the 8 GB/s cap.
+        # Keep the total work at about 5 passes over 100 MB.
+        _, l3_kb, _ = CommonLib.Run("cat /sys/devices/system/cpu/cpu0/cache/index3/size|awk -F'[^0-9]*' '{print $1}'")
+        size_mb = max(100, 4 * int(l3_kb) // 1024)
+        loops = max(1, 500 // size_mb)
+        logging.info("L3 %s KB, memtester %dM %d loops", l3_kb.strip(), size_mb, loops)
+        run_memtest = subprocess.Popen("taskset -c 0 memtester {0}M {1} > /dev/tmp".format(size_mb, loops), shell=True)
 
         while run_memtest.poll() is None:
             time.sleep(2)
