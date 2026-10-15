@@ -178,13 +178,13 @@ class Pqos(Test):
         MSRDict['0x0c90'] = 'AllocMask'
         MSRDict['0x0c8d'] = 'MEvtSel'
         MSRDict['0x0c8e'] = 'QOSL3Cnt'
-        MSRDict['0x0200'] = 'BWCtrl'
+        MSRDict['0xc0000200'] = 'BWCtrl'
 
         RWDict['0x0c81'] = 'RW'
         RWDict['0x0c90'] = 'RW'
         RWDict['0x0c8d'] = 'RW'
         RWDict['0x0c8e'] = 'R'
-        RWDict['0x0200'] = 'RW'
+        RWDict['0xc0000200'] = 'RW'
 
         """
         Random values to test read/write permissions of MSRs
@@ -193,9 +193,9 @@ class Pqos(Test):
         ValueDict['0x0c90'] = '0xffff'
         ValueDict['0x0c8d'] = '0x99'
         ValueDict['0x0c8e'] = '0'
-        ValueDict['0x0200'] = '0x05'
+        ValueDict['0xc0000200'] = '0x05'
 
-        MSRAddr = ['0x0c81','0x0c90','0x0c8d','0x0c8e','0x0200']
+        MSRAddr = ['0x0c81','0x0c90','0x0c8d','0x0c8e','0xc0000200']
 
     def test_MSR(self):
         self.log.info(" -- Testing the MSRS for QOS --")
@@ -205,19 +205,22 @@ class Pqos(Test):
         retsave = 0
         for m in MSRAddr:
             ret = 0
-            out_readmsr = subprocess.Popen(['rdmsr', str(m)],
-                    stdout=subprocess.PIPE, universal_newlines=True)
-            readmsr = out_readmsr.stdout.read()
+            readmsr = subprocess.run(['rdmsr', str(m)],
+                    stdout=subprocess.PIPE, universal_newlines=True).stdout
             if not "" == readmsr:
                 self.log.info('%s is Accessible, value: %s', MSRDict[m],
                         readmsr)
                 if RWDict[m] == 'RW':
                     value = ValueDict[m]
-                    subprocess.Popen(['wrmsr', str(m), str(value)],
+                    subprocess.run(['wrmsr', str(m), str(value)],
                             stdout=subprocess.PIPE, universal_newlines=True)
-                    out1_readmsr = subprocess.Popen(['rdmsr', str(m)],
+                    read_written_msr = subprocess.run(['rdmsr', str(m)],
+                            stdout=subprocess.PIPE, universal_newlines=True).stdout
+                    # Restore the original value. The kernel does not rewrite
+                    # most of these MSRs, so a test value stays until reboot
+                    # (CDP enabled in L3QOSCFG1 breaks the later MBA tests).
+                    subprocess.run(['wrmsr', str(m), '0x' + readmsr.strip()],
                             stdout=subprocess.PIPE, universal_newlines=True)
-                    read_written_msr = out1_readmsr.stdout.read()
                     if not "" == read_written_msr:
                         self.log.info('PASS: %s: Able to write msr, Updated value: %s',
                                 MSRDict[m], read_written_msr)
